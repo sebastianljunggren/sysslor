@@ -3,6 +3,7 @@ mod auth;
 mod completions;
 mod events;
 mod executors;
+mod groups;
 mod projects;
 mod tasks;
 #[cfg(test)]
@@ -44,6 +45,8 @@ pub fn router(state: AppState) -> Router {
         .route("/events", get(events::stream))
         .route("/projects/{id}", get(projects::get).put(projects::rename))
         .route("/projects/{id}/tasks", post(tasks::create))
+        .route("/projects/{id}/groups", post(groups::create))
+        .route("/groups/{id}", put(groups::rename).delete(groups::delete))
         .route("/tasks/{id}", put(tasks::update).delete(tasks::archive))
         .route("/executors", get(executors::list).post(executors::create))
         .route("/executors/{id}", put(executors::rename))
@@ -81,6 +84,8 @@ async fn healthz(State(state): State<AppState>) -> StatusCode {
 #[derive(Debug)]
 pub enum ApiError {
     NotFound(&'static str),
+    /// The request conflicts with the current state, e.g. removing a non-empty group.
+    Conflict(&'static str),
     Unauthorized(&'static str),
     TooManyRequests,
     /// The request is well-formed JSON but its values are not acceptable.
@@ -98,6 +103,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, error) = match self {
             Self::NotFound(what) => (StatusCode::NOT_FOUND, what.to_owned()),
+            Self::Conflict(why) => (StatusCode::CONFLICT, why.to_owned()),
             Self::Unauthorized(why) => (StatusCode::UNAUTHORIZED, why.to_owned()),
             Self::TooManyRequests => (
                 StatusCode::TOO_MANY_REQUESTS,

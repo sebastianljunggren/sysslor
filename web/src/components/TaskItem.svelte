@@ -8,11 +8,14 @@
 
   let {
     task,
+    groupName,
     executors,
     canComplete,
     oncomplete,
   }: {
     task: TaskView;
+    /** Shown as a tag; absent for ungrouped tasks or when filtering on one group. */
+    groupName?: string;
     executors: Executor[];
     canComplete: boolean;
     oncomplete: () => Promise<void>;
@@ -68,6 +71,9 @@
         {task.name}
         {#if task.priority > 0}
           <span class="priority" title={m.priority_value({ priority: task.priority })}>{'!'.repeat(task.priority)}</span>
+        {/if}
+        {#if groupName}
+          <span class="group">{groupName}</span>
         {/if}
       </span>
       <span class="meta">
@@ -140,6 +146,17 @@
 
   .priority {
     color: var(--danger);
+  }
+
+  .group {
+    margin-left: 0.25rem;
+    padding: 0.05rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: normal;
+    vertical-align: middle;
   }
 
   .meta {

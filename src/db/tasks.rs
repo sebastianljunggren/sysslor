@@ -1,10 +1,10 @@
 use anyhow::{Context, bail};
 use jiff::Timestamp;
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 
 use super::projects::ProjectId;
 use super::to_millis;
-use crate::domain::{Cadence, CadenceUnit, Task, TaskId};
+use crate::domain::{Cadence, CadenceUnit, GroupId, Task, TaskId};
 
 /// The user-editable fields of a task.
 #[derive(Debug, Clone, PartialEq)]
@@ -12,12 +12,23 @@ pub struct TaskFields {
     pub name: String,
     pub cadence: Cadence,
     pub priority: u8,
+    pub group_id: Option<GroupId>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Write {
+    /// Carries the written task and the project it belongs to.
+    Done(ProjectId, Task),
+    /// There is no such project (create) or no such active task (update).
+    NotFound,
+    /// The group does not exist in the task's project.
+    UnknownGroup,
 }
 
 /// Lists the tasks in a project that are not archived, in no particular order.
 pub async fn list_active(pool: &SqlitePool, project_id: ProjectId) -> anyhow::Result<Vec<Task>> {
     let rows = sqlx::query!(
-        "SELECT id, name, cadence_amount, cadence_unit, priority
+        "SELECT id, name, cadence_amount, cadence_unit, priority, group_id
          FROM tasks
          WHERE project_id = ? AND archived_at IS NULL",
         project_id
@@ -32,74 +43,120 @@ pub async fn list_active(pool: &SqlitePool, project_id: ProjectId) -> anyhow::Re
                 row.cadence_amount,
                 &row.cadence_unit,
                 row.priority,
+                row.group_id,
             )
         })
         .collect()
 }
 
-/// Returns `None` if there is no such project.
 pub async fn create(
     pool: &SqlitePool,
     project_id: ProjectId,
     fields: &TaskFields,
     now: Timestamp,
-) -> anyhow::Result<Option<Task>> {
+) -> anyhow::Result<Write> {
     let amount = i64::from(fields.cadence.amount);
     let unit = unit_to_str(fields.cadence.unit);
     let created_at = to_millis(now);
-    // Inserting via SELECT turns an unknown project into zero rows instead of a
-    // foreign key error.
+    // IMMEDIATE so the group cannot be deleted between the check and the insert.
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+
+    let project_exists = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM projects WHERE id = ?) AS "exists!: bool""#,
+        project_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if !project_exists {
+        return Ok(Write::NotFound);
+    }
+    if !group_in_project(&mut tx, fields.group_id, project_id).await? {
+        return Ok(Write::UnknownGroup);
+    }
+
     let id = sqlx::query_scalar!(
-        r#"INSERT INTO tasks (project_id, name, cadence_amount, cadence_unit, priority, created_at)
-         SELECT id, ?, ?, ?, ?, ? FROM projects WHERE id = ?
+        r#"INSERT INTO tasks
+             (project_id, name, cadence_amount, cadence_unit, priority, group_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          RETURNING id AS "id!""#,
+        project_id,
         fields.name,
         amount,
         unit,
         fields.priority,
-        created_at,
+        fields.group_id,
+        created_at
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(Write::Done(project_id, with_fields(id, fields)))
+}
+
+pub async fn update(pool: &SqlitePool, id: TaskId, fields: &TaskFields) -> anyhow::Result<Write> {
+    let amount = i64::from(fields.cadence.amount);
+    let unit = unit_to_str(fields.cadence.unit);
+    // IMMEDIATE so the group cannot be deleted between the check and the update.
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+
+    let project_id = sqlx::query_scalar!(
+        "SELECT project_id FROM tasks WHERE id = ? AND archived_at IS NULL",
+        id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(project_id) = project_id else {
+        return Ok(Write::NotFound);
+    };
+    if !group_in_project(&mut tx, fields.group_id, project_id).await? {
+        return Ok(Write::UnknownGroup);
+    }
+
+    sqlx::query!(
+        "UPDATE tasks SET name = ?, cadence_amount = ?, cadence_unit = ?, priority = ?, group_id = ?
+         WHERE id = ?",
+        fields.name,
+        amount,
+        unit,
+        fields.priority,
+        fields.group_id,
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(Write::Done(project_id, with_fields(id, fields)))
+}
+
+/// No group always counts as valid.
+async fn group_in_project(
+    tx: &mut SqliteConnection,
+    group_id: Option<GroupId>,
+    project_id: ProjectId,
+) -> anyhow::Result<bool> {
+    let Some(group_id) = group_id else {
+        return Ok(true);
+    };
+    let exists = sqlx::query_scalar!(
+        r#"SELECT EXISTS (
+             SELECT 1 FROM task_groups WHERE id = ? AND project_id = ?
+         ) AS "exists!: bool""#,
+        group_id,
         project_id
     )
-    .fetch_optional(pool)
+    .fetch_one(tx)
     .await?;
-    Ok(id.map(|id| Task {
+    Ok(exists)
+}
+
+fn with_fields(id: TaskId, fields: &TaskFields) -> Task {
+    Task {
         id,
         name: fields.name.clone(),
         cadence: fields.cadence,
         priority: fields.priority,
-    }))
-}
-
-/// Returns the task and the project it belongs to, or `None` if there is no such
-/// task or it is archived.
-pub async fn update(
-    pool: &SqlitePool,
-    id: TaskId,
-    fields: &TaskFields,
-) -> anyhow::Result<Option<(ProjectId, Task)>> {
-    let amount = i64::from(fields.cadence.amount);
-    let unit = unit_to_str(fields.cadence.unit);
-    let project_id = sqlx::query_scalar!(
-        "UPDATE tasks SET name = ?, cadence_amount = ?, cadence_unit = ?, priority = ?
-         WHERE id = ? AND archived_at IS NULL
-         RETURNING project_id",
-        fields.name,
-        amount,
-        unit,
-        fields.priority,
-        id
-    )
-    .fetch_optional(pool)
-    .await?;
-    Ok(project_id.map(|project_id| {
-        let task = Task {
-            id,
-            name: fields.name.clone(),
-            cadence: fields.cadence,
-            priority: fields.priority,
-        };
-        (project_id, task)
-    }))
+        group_id: fields.group_id,
+    }
 }
 
 /// Soft-deletes a task so its completion history survives. Returns the project the
@@ -121,7 +178,14 @@ pub async fn archive(
     Ok(project_id)
 }
 
-fn task(id: TaskId, name: String, amount: i64, unit: &str, priority: i64) -> anyhow::Result<Task> {
+fn task(
+    id: TaskId,
+    name: String,
+    amount: i64,
+    unit: &str,
+    priority: i64,
+    group_id: Option<GroupId>,
+) -> anyhow::Result<Task> {
     let amount = u32::try_from(amount)
         .with_context(|| format!("task {id} has invalid cadence amount {amount}"))?;
     let unit = match unit {
@@ -136,6 +200,7 @@ fn task(id: TaskId, name: String, amount: i64, unit: &str, priority: i64) -> any
         name,
         cadence: Cadence { amount, unit },
         priority,
+        group_id,
     })
 }
 

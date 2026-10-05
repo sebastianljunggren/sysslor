@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE tasks SET name = ?, cadence_amount = ?, cadence_unit = ?, priority = ?\n         WHERE id = ? AND archived_at IS NULL\n         RETURNING project_id",
+  "query": "UPDATE task_groups SET name = ? WHERE id = ? RETURNING project_id",
   "describe": {
     "columns": [
       {
@@ -9,18 +9,18 @@
         "type_info": "Integer",
         "origin": {
           "Table": {
-            "table": "tasks",
+            "table": "task_groups",
             "name": "project_id"
           }
         }
       }
     ],
     "parameters": {
-      "Right": 5
+      "Right": 2
     },
     "nullable": [
       false
     ]
   },
-  "hash": "eaf3099caa2729b230277f5d200015db976b4529320ab1b3c265d851c9646ecd"
+  "hash": "14cd6bf9d26d68e625acfafc0f550612ebed8aecf29d34532a02c5c7156dde06"
 }

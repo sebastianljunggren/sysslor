@@ -124,6 +124,28 @@ pub async fn create_task(pool: &SqlitePool, name: &str, days: u32, priority: u8)
     task["id"].as_i64().unwrap()
 }
 
+/// Creates a group in the default project and returns its id.
+pub async fn create_group(pool: &SqlitePool, name: &str) -> i64 {
+    let body = serde_json::json!({ "name": name });
+    let (status, group): (_, Value) =
+        json(pool, "POST", "/api/projects/1/groups", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    group["id"].as_i64().unwrap()
+}
+
+/// Creates a weekly task in the default project, optionally in a group, and returns its id.
+pub async fn create_task_in(pool: &SqlitePool, name: &str, group_id: Option<i64>) -> i64 {
+    let body = serde_json::json!({
+        "name": name,
+        "cadence": { "amount": 1, "unit": "weeks" },
+        "priority": 0,
+        "group_id": group_id,
+    });
+    let (status, task): (_, Value) = json(pool, "POST", "/api/projects/1/tasks", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    task["id"].as_i64().unwrap()
+}
+
 /// Creates an executor and returns its id.
 pub async fn create_executor(pool: &SqlitePool, name: &str) -> i64 {
     let body = serde_json::json!({ "name": name });

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, name, cadence_amount, cadence_unit, priority\n         FROM tasks\n         WHERE project_id = ? AND archived_at IS NULL",
+  "query": "SELECT id, name, cadence_amount, cadence_unit, priority, group_id\n         FROM tasks\n         WHERE project_id = ? AND archived_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,17 @@
             "name": "priority"
           }
         }
+      },
+      {
+        "name": "group_id",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "group_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -67,8 +78,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "8acffb838f9ebf63146d3af353c2322dc42bbf46d594b1e1e893ce1599d98359"
+  "hash": "41bb91ab7793084790d7e4c628b984e921316937968dc54fd2f0f68432203262"
 }

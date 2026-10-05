@@ -24,4 +24,8 @@ overdue: boolean, id: number, name: string, cadence: Cadence,
 /**
  * 0-5, where 5 is the highest priority.
  */
-priority: number, };
+priority: number, 
+/**
+ * `null` if the task is not in a group.
+ */
+group_id: number | null, };

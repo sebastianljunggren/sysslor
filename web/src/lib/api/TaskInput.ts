@@ -4,4 +4,8 @@ import type { Cadence } from "./Cadence";
 /**
  * Body for creating or updating a task.
  */
-export type TaskInput = { name: string, cadence: Cadence, priority: number, };
+export type TaskInput = { name: string, cadence: Cadence, priority: number, 
+/**
+ * A group in the task's project, or `null` for none.
+ */
+group_id: number | null, };

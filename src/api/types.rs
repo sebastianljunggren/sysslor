@@ -35,12 +35,29 @@ pub struct ProjectInput {
     pub name: String,
 }
 
-/// A project with its tasks, sorted so the ones needing attention come first.
+/// A project with its groups, sorted by name, and its tasks, sorted so the ones needing
+/// attention come first.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ProjectView {
     pub project: Project,
+    pub groups: Vec<Group>,
     pub tasks: Vec<TaskView>,
+}
+
+/// An optional grouping of tasks within a project, such as a room.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Group {
+    pub id: i64,
+    pub name: String,
+}
+
+/// Body for creating or renaming a group.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct GroupInput {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -51,6 +68,8 @@ pub struct Task {
     pub cadence: Cadence,
     /// 0-5, where 5 is the highest priority.
     pub priority: u8,
+    /// `null` if the task is not in a group.
+    pub group_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -77,6 +96,8 @@ pub struct TaskInput {
     pub name: String,
     pub cadence: Cadence,
     pub priority: u8,
+    /// A group in the task's project, or `null` for none.
+    pub group_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -189,6 +210,16 @@ impl From<domain::Task> for Task {
             name: task.name,
             cadence: task.cadence.into(),
             priority: task.priority,
+            group_id: task.group_id,
+        }
+    }
+}
+
+impl From<domain::Group> for Group {
+    fn from(group: domain::Group) -> Self {
+        Self {
+            id: group.id,
+            name: group.name,
         }
     }
 }

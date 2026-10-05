@@ -1,15 +1,18 @@
 <script lang="ts">
   import type { CadenceUnit } from '../lib/api/CadenceUnit';
+  import type { Group } from '../lib/api/Group';
   import type { TaskInput } from '../lib/api/TaskInput';
   import { m } from '../lib/paraglide/messages.js';
 
   let {
-    initial = { name: '', cadence: { amount: 7, unit: 'days' }, priority: 0 },
+    initial = { name: '', cadence: { amount: 7, unit: 'days' }, priority: 0, group_id: null },
+    groups,
     submitLabel,
     onsubmit,
     oncancel,
   }: {
     initial?: TaskInput;
+    groups: Group[];
     submitLabel: string;
     /** Resolves to whether the save succeeded. */
     onsubmit: (input: TaskInput) => Promise<boolean>;
@@ -25,15 +28,18 @@
   let unit = $state<CadenceUnit>(initial.cadence.unit);
   // svelte-ignore state_referenced_locally
   let priority = $state(initial.priority);
+  // svelte-ignore state_referenced_locally
+  let groupId = $state(initial.group_id);
   let busy = $state(false);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     busy = true;
     try {
-      const saved = await onsubmit({ name, cadence: { amount, unit }, priority });
+      const saved = await onsubmit({ name, cadence: { amount, unit }, priority, group_id: groupId });
       if (saved && !oncancel) {
-        // A create form stays open for the next task.
+        // A create form stays open for the next task, keeping the group since chores
+        // tend to be added room by room.
         name = '';
       }
     } finally {
@@ -65,6 +71,17 @@
       {/each}
     </select>
   </label>
+  {#if groups.length > 0}
+    <label>
+      {m.group()}
+      <select bind:value={groupId}>
+        <option value={null}>{m.no_group()}</option>
+        {#each groups as group (group.id)}
+          <option value={group.id}>{group.name}</option>
+        {/each}
+      </select>
+    </label>
+  {/if}
   <div class="actions">
     <button type="submit" class="primary" disabled={busy}>{submitLabel}</button>
     {#if oncancel}

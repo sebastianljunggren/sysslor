@@ -36,6 +36,12 @@
   "language": "Language",
   "confirm_remove_task": "Remove “{name}”? Its history is kept.",
   "remove": "Remove",
+  "groups": "Groups",
+  "group": "Group",
+  "no_group": "No group",
+  "all_groups": "All",
+  "group_has_chores": "Move or remove its chores first",
+  "no_chores_in_group": "No chores here.",
 
   "every": "Every",
   "priority": "Priority",

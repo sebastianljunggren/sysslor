@@ -1,13 +1,17 @@
 <script lang="ts">
   import type { Executor } from '../lib/api/Executor';
+  import type { Group } from '../lib/api/Group';
   import type { ProjectView } from '../lib/api/ProjectView';
   import type { TaskInput } from '../lib/api/TaskInput';
   import type { TaskView } from '../lib/api/TaskView';
   import {
     archiveTask,
     createExecutor,
+    createGroup,
     createTask,
+    deleteGroup,
     renameExecutor,
+    renameGroup,
     renameProject,
     updateTask,
   } from '../lib/client';
@@ -28,6 +32,12 @@
   let newExecutor = $state('');
   // Rename drafts by executor id; absent means unchanged.
   let drafts = $state<Record<number, string>>({});
+  let newGroup = $state('');
+  // Rename drafts by group id; absent means unchanged.
+  let groupDrafts = $state<Record<number, string>>({});
+
+  const groupNames = $derived(new Map(view.groups.map((g) => [g.id, g.name])));
+  const usedGroups = $derived(new Set(view.tasks.map((t) => t.group_id)));
 
   // Alphabetical, so the list doesn't jump around while tasks are edited.
   const tasks = $derived(view.tasks.toSorted((a, b) => a.name.localeCompare(b.name, getLocale())));
@@ -37,6 +47,18 @@
     const name = projectDraft;
     if (name === undefined) return;
     if (await mutate(() => renameProject(view.project.id, { name }))) projectDraft = undefined;
+  }
+
+  async function addGroup(event: SubmitEvent) {
+    event.preventDefault();
+    if (await mutate(() => createGroup(view.project.id, { name: newGroup }))) newGroup = '';
+  }
+
+  async function saveGroupName(event: SubmitEvent, group: Group) {
+    event.preventDefault();
+    const name = groupDrafts[group.id];
+    if (name === undefined) return;
+    if (await mutate(() => renameGroup(group.id, { name }))) delete groupDrafts[group.id];
   }
 
   async function addTask(input: TaskInput) {
@@ -86,13 +108,52 @@
 </section>
 
 <section>
+  <h2>{m.groups()}</h2>
+  <ul>
+    {#each view.groups as group (group.id)}
+      {@const inUse = usedGroups.has(group.id)}
+      <li>
+        <form class="row" onsubmit={(e) => saveGroupName(e, group)}>
+          <input
+            class="grow"
+            aria-label={m.name()}
+            value={groupDrafts[group.id] ?? group.name}
+            oninput={(e) => (groupDrafts[group.id] = e.currentTarget.value)}
+            required
+            maxlength="200"
+          />
+          {#if groupDrafts[group.id] !== undefined && groupDrafts[group.id] !== group.name}
+            <button type="submit" class="primary">{m.save()}</button>
+            <button type="button" onclick={() => delete groupDrafts[group.id]}>{m.cancel()}</button>
+          {:else}
+            <!-- An empty group holds nothing, so it is removed without confirmation. -->
+            <button
+              type="button"
+              class="danger"
+              disabled={inUse}
+              title={inUse ? m.group_has_chores() : undefined}
+              onclick={() => mutate(() => deleteGroup(group.id))}>{m.remove()}</button
+            >
+          {/if}
+        </form>
+      </li>
+    {/each}
+  </ul>
+  <form class="row" onsubmit={addGroup}>
+    <input class="grow" bind:value={newGroup} placeholder={m.name()} required maxlength="200" />
+    <button type="submit" class="primary">{m.add()}</button>
+  </form>
+</section>
+
+<section>
   <h2>{m.chores()}</h2>
   <ul>
     {#each tasks as task (task.id)}
       <li>
         {#if editingTask === task.id}
           <TaskForm
-            initial={{ name: task.name, cadence: task.cadence, priority: task.priority }}
+            initial={{ name: task.name, cadence: task.cadence, priority: task.priority, group_id: task.group_id }}
+            groups={view.groups}
             submitLabel={m.save()}
             onsubmit={(input) => saveTask(task.id, input)}
             oncancel={() => (editingTask = null)}
@@ -102,6 +163,7 @@
             <span class="grow">
               <strong>{task.name}</strong>
               <span class="muted">
+                {#if task.group_id !== null}· {groupNames.get(task.group_id)}{/if}
                 · {formatCadence(task.cadence)}{task.priority > 0 ? ` · ${m.priority_value({ priority: task.priority })}` : ''}
               </span>
             </span>
@@ -113,7 +175,7 @@
     {/each}
   </ul>
   <h3>{m.new_chore()}</h3>
-  <TaskForm submitLabel={m.add()} onsubmit={addTask} />
+  <TaskForm groups={view.groups} submitLabel={m.add()} onsubmit={addTask} />
 </section>
 
 <section>

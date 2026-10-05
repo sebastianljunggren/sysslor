@@ -152,6 +152,25 @@ mod tests {
         let (status, _) = request_with(&state, "PUT", "/api/projects/1", Some(project_input)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(drain(&mut events), [changed(Some(1))]);
+
+        let group_input = json!({ "name": "Kitchen" });
+        let (status, group) = request_with(
+            &state,
+            "POST",
+            "/api/projects/1/groups",
+            Some(group_input.clone()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let group = serde_json::from_str::<Value>(&group).unwrap()["id"]
+            .as_i64()
+            .unwrap();
+        let group_uri = format!("/api/groups/{group}");
+        let (status, _) = request_with(&state, "PUT", &group_uri, Some(group_input)).await;
+        assert_eq!(status, StatusCode::OK);
+        let (status, _) = request_with(&state, "DELETE", &group_uri, None).await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+        assert_eq!(drain(&mut events), vec![changed(Some(1)); 3]);
     }
 
     #[sqlx::test]
@@ -185,6 +204,16 @@ mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _) = request_with(&state, "DELETE", "/api/groups/99", None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _) = request_with(
+            &state,
+            "POST",
+            "/api/projects/1/tasks",
+            Some(json!({ "name": "Vacuum", "cadence": { "amount": 7, "unit": "days" }, "priority": 0, "group_id": 99 })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(drain(&mut events), []);
     }
 

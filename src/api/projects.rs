@@ -8,7 +8,7 @@ use super::types::{Project, ProjectInput, ProjectView, TaskView};
 use super::{ApiError, ApiResult, AppState, validate_name};
 use crate::db;
 use crate::db::projects::ProjectId;
-use crate::domain::sort_tasks;
+use crate::domain::{sort_groups, sort_tasks};
 
 pub async fn get(
     State(state): State<AppState>,
@@ -17,6 +17,8 @@ pub async fn get(
     let Some(project) = db::projects::get(&state.pool, id).await? else {
         return Err(ApiError::NotFound("no such project"));
     };
+    let mut groups = db::groups::list(&state.pool, id).await?;
+    sort_groups(&mut groups);
     let tasks = db::tasks::list_active(&state.pool, id).await?;
     let mut latest = db::completions::latest_per_task(&state.pool, id).await?;
     let last_completed: HashMap<_, _> = latest
@@ -33,6 +35,7 @@ pub async fn get(
         .collect();
     Ok(Json(ProjectView {
         project: project.into(),
+        groups: groups.into_iter().map(Into::into).collect(),
         tasks,
     }))
 }

@@ -36,6 +36,12 @@
   "language": "Språk",
   "confirm_remove_task": "Ta bort ”{name}”? Historiken sparas.",
   "remove": "Ta bort",
+  "groups": "Grupper",
+  "group": "Grupp",
+  "no_group": "Ingen grupp",
+  "all_groups": "Alla",
+  "group_has_chores": "Flytta eller ta bort dess sysslor först",
+  "no_chores_in_group": "Inga sysslor här.",
 
   "every": "Intervall",
   "priority": "Prioritet",

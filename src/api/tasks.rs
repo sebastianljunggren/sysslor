@@ -7,8 +7,8 @@ use super::types::{Task, TaskInput};
 use super::{ApiError, ApiResult, AppState, validate_name};
 use crate::db;
 use crate::db::projects::ProjectId;
-use crate::db::tasks::TaskFields;
-use crate::domain::TaskId;
+use crate::db::tasks::{TaskFields, Write};
+use crate::domain::{self, TaskId};
 
 pub async fn create(
     State(state): State<AppState>,
@@ -16,10 +16,8 @@ pub async fn create(
     Json(input): Json<TaskInput>,
 ) -> ApiResult<(StatusCode, Json<Task>)> {
     let fields = validate(input)?;
-    let Some(task) = db::tasks::create(&state.pool, project_id, &fields, Timestamp::now()).await?
-    else {
-        return Err(ApiError::NotFound("no such project"));
-    };
+    let write = db::tasks::create(&state.pool, project_id, &fields, Timestamp::now()).await?;
+    let (project_id, task) = written(write, "no such project")?;
     state.events.changed(Some(project_id));
     Ok((StatusCode::CREATED, Json(task.into())))
 }
@@ -30,9 +28,8 @@ pub async fn update(
     Json(input): Json<TaskInput>,
 ) -> ApiResult<Json<Task>> {
     let fields = validate(input)?;
-    let Some((project_id, task)) = db::tasks::update(&state.pool, id, &fields).await? else {
-        return Err(ApiError::NotFound("no such task"));
-    };
+    let write = db::tasks::update(&state.pool, id, &fields).await?;
+    let (project_id, task) = written(write, "no such task")?;
     state.events.changed(Some(project_id));
     Ok(Json(task.into()))
 }
@@ -64,7 +61,18 @@ fn validate(input: TaskInput) -> ApiResult<TaskFields> {
         name: validate_name(&input.name)?,
         cadence: input.cadence.into(),
         priority: input.priority,
+        group_id: input.group_id,
     })
+}
+
+fn written(write: Write, not_found: &'static str) -> ApiResult<(ProjectId, domain::Task)> {
+    match write {
+        Write::Done(project_id, task) => Ok((project_id, task)),
+        Write::NotFound => Err(ApiError::NotFound(not_found)),
+        Write::UnknownGroup => Err(ApiError::Invalid(
+            "no such group in this project".to_owned(),
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -145,6 +153,60 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!((task.id, task.name.as_str(), task.priority), (id, "Mop", 5));
         assert_eq!(default_project(&pool).await.tasks[0].task, task);
+    }
+
+    #[sqlx::test]
+    async fn group_can_be_set_and_cleared(pool: SqlitePool) {
+        let kitchen = create_group(&pool, "Kitchen").await;
+        let bathroom = create_group(&pool, "Bathroom").await;
+        let id = create_task_in(&pool, "Wipe", Some(kitchen)).await;
+        assert_eq!(
+            default_project(&pool).await.tasks[0].task.group_id,
+            Some(kitchen)
+        );
+
+        let uri = format!("/api/tasks/{id}");
+        let mut body = input("Wipe", 1, 0);
+        body["group_id"] = json!(bathroom);
+        let (status, task): (_, Task) = json(&pool, "PUT", &uri, Some(body)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(task.group_id, Some(bathroom));
+
+        // Omitting the group is the same as `null`.
+        let (status, task): (_, Task) = json(&pool, "PUT", &uri, Some(input("Wipe", 1, 0))).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(task.group_id, None);
+        assert_eq!(default_project(&pool).await.tasks[0].task.group_id, None);
+    }
+
+    #[sqlx::test]
+    async fn group_must_exist_in_the_tasks_project(pool: SqlitePool) {
+        sqlx::query("INSERT INTO projects (id, name) VALUES (2, 'Cabin')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let (status, other): (_, Value) = json(
+            &pool,
+            "POST",
+            "/api/projects/2/groups",
+            Some(json!({ "name": "Sauna" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let id = create_task(&pool, "Vacuum", 7, 0).await;
+
+        for group_id in [other["id"].clone(), json!(99)] {
+            let mut body = input("Vacuum", 1, 0);
+            body["group_id"] = group_id;
+            let (status, _) =
+                request(&pool, "POST", "/api/projects/1/tasks", Some(body.clone())).await;
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+            let (status, _) = request(&pool, "PUT", &format!("/api/tasks/{id}"), Some(body)).await;
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        }
+        let view = default_project(&pool).await;
+        assert_eq!(view.tasks.len(), 1);
+        assert_eq!(view.tasks[0].task.group_id, None);
     }
 
     #[sqlx::test]

@@ -1,5 +1,6 @@
 pub mod completions;
 pub mod executors;
+pub mod groups;
 pub mod projects;
 pub mod tasks;
 

@@ -12,12 +12,18 @@ import {
 import { m } from './paraglide/messages.js';
 
 const EXECUTOR_KEY = 'sysslor.executor';
+const GROUP_FILTER_KEY = 'sysslor.group';
+
+/** A group id, `'none'` for ungrouped tasks, or `null` for all tasks. */
+export type GroupFilter = number | 'none' | null;
 
 export const data = $state({
   view: null as ProjectView | null,
   executors: [] as Executor[],
   /** The executor last picked on this device. May no longer exist. */
   executorId: loadExecutorId(),
+  /** The group filter last picked on this device. The group may no longer exist. */
+  groupFilter: loadGroupFilter(),
   connected: true,
   /** Assumed until the server says otherwise, so logged-in devices skip a round trip. */
   loggedIn: true,
@@ -127,6 +133,27 @@ export function pickExecutor(id: number) {
     localStorage.setItem(EXECUTOR_KEY, String(id));
   } catch {
     // Storage can be unavailable (e.g. private browsing); the pick then lasts this session.
+  }
+}
+
+export function pickGroupFilter(filter: GroupFilter) {
+  data.groupFilter = filter;
+  try {
+    if (filter === null) localStorage.removeItem(GROUP_FILTER_KEY);
+    else localStorage.setItem(GROUP_FILTER_KEY, String(filter));
+  } catch {
+    // Storage can be unavailable (e.g. private browsing); the pick then lasts this session.
+  }
+}
+
+function loadGroupFilter(): GroupFilter {
+  try {
+    const stored = localStorage.getItem(GROUP_FILTER_KEY);
+    if (stored === null || stored === 'none') return stored;
+    const id = Number(stored);
+    return Number.isInteger(id) ? id : null;
+  } catch {
+    return null;
   }
 }
 

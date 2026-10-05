@@ -4,6 +4,8 @@ import type { ErrorBody } from './api/ErrorBody';
 import type { Event } from './api/Event';
 import type { Executor } from './api/Executor';
 import type { ExecutorInput } from './api/ExecutorInput';
+import type { Group } from './api/Group';
+import type { GroupInput } from './api/GroupInput';
 import type { LoginInput } from './api/LoginInput';
 import type { Project } from './api/Project';
 import type { ProjectInput } from './api/ProjectInput';
@@ -61,6 +63,12 @@ export const createTask = (projectId: number, input: TaskInput) =>
 export const updateTask = (id: number, input: TaskInput) =>
   request<Task>('PUT', `/tasks/${id}`, input);
 export const archiveTask = (id: number) => request<void>('DELETE', `/tasks/${id}`);
+
+export const createGroup = (projectId: number, input: GroupInput) =>
+  request<Group>('POST', `/projects/${projectId}/groups`, input);
+export const renameGroup = (id: number, input: GroupInput) =>
+  request<Group>('PUT', `/groups/${id}`, input);
+export const deleteGroup = (id: number) => request<void>('DELETE', `/groups/${id}`);
 
 export const listExecutors = () => request<Executor[]>('GET', '/executors');
 export const createExecutor = (input: ExecutorInput) =>

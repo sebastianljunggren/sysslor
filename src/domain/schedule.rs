@@ -5,7 +5,7 @@ use jiff::civil::Date;
 use jiff::tz::TimeZone;
 use jiff::{Span, Timestamp};
 
-use super::Cadence;
+use super::{Cadence, GroupId};
 
 pub type TaskId = i64;
 
@@ -16,6 +16,7 @@ pub struct Task {
     pub cadence: Cadence,
     /// 0-5, where 5 is the highest priority.
     pub priority: u8,
+    pub group_id: Option<GroupId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -141,6 +142,7 @@ mod tests {
             name: format!("task {id}"),
             cadence,
             priority,
+            group_id: None,
         }
     }
 
