@@ -59,13 +59,19 @@ export function refreshAll() {
 
 /** Keeps `data` in sync with the server. Returns a function that disconnects. */
 export function connect(): () => void {
-  return subscribe(
+  const disconnect = subscribe(
     (project) => {
       if (project === null) refreshAll();
       else if (project === DEFAULT_PROJECT) refreshProject();
     },
     (connected) => (data.connected = connected),
   );
+  return () => {
+    disconnect();
+    // A stream closed by logging out isn't a lost connection. A stale `false` would show
+    // the banner after the next login until the new stream opens.
+    data.connected = true;
+  };
 }
 
 /**
