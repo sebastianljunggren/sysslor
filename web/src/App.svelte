@@ -66,15 +66,34 @@
   :global(:root) {
     color-scheme: light dark;
     font-family: system-ui, sans-serif;
-    --bg: light-dark(#fafafa, #1a1a1a);
-    --fg: light-dark(#1a1a1a, #eaeaea);
-    --muted: light-dark(#666, #999);
-    --surface: light-dark(#fff, #252525);
-    --border: light-dark(#ddd, #3a3a3a);
-    --accent: light-dark(#2563eb, #60a5fa);
-    --accent-fg: light-dark(#fff, #0b1220);
-    --danger: light-dark(#c62828, #ef5350);
-    --warning-bg: light-dark(#fff4d6, #3d3420);
+    /* Solarized palette, the only color literals in the app. */
+    --base03: #002b36;
+    --base02: #073642;
+    --base01: #586e75;
+    --base00: #657b83;
+    --base0: #839496;
+    --base1: #93a1a1;
+    --base2: #eee8d5;
+    --base3: #fdf6e3;
+    --yellow: #b58900;
+    --orange: #cb4b16;
+    --red: #dc322f;
+    --magenta: #d33682;
+    --violet: #6c71c4;
+    --blue: #268bd2;
+    --cyan: #2aa198;
+    --green: #859900;
+
+    /* Text is one step stronger than strict Solarized: muted base1 on base3 is too faint. */
+    --bg: light-dark(var(--base2), var(--base03));
+    --surface: light-dark(var(--base3), var(--base02));
+    --fg: light-dark(var(--base01), var(--base1));
+    --muted: light-dark(var(--base00), var(--base0));
+    --border: light-dark(var(--base1), var(--base01));
+    --accent: var(--blue);
+    --accent-fg: light-dark(var(--base3), var(--base03));
+    --danger: var(--red);
+    --warning-bg: color-mix(in srgb, var(--yellow) 20%, var(--bg));
     background: var(--bg);
     color: var(--fg);
   }

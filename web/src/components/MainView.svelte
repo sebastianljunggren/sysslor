@@ -195,7 +195,7 @@
     border-radius: 0.5rem;
     background: var(--fg);
     color: var(--bg);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--base03) 30%, transparent);
   }
 
   .toast .link {
