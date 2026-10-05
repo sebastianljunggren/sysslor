@@ -18,7 +18,7 @@ pub async fn get(
         return Err(ApiError::NotFound("no such project"));
     };
     let mut groups = db::groups::list(&state.pool, id).await?;
-    sort_groups(&mut groups);
+    sort_groups(&mut groups, &state.collator);
     let tasks = db::tasks::list_active(&state.pool, id).await?;
     let mut latest = db::completions::latest_per_task(&state.pool, id).await?;
     let last_completed: HashMap<_, _> = latest
@@ -26,13 +26,20 @@ pub async fn get(
         .map(|(&task_id, completion)| (task_id, completion.completed_at))
         .collect();
 
-    let tasks = sort_tasks(tasks, &last_completed, Timestamp::now(), &state.family_tz)
-        .into_iter()
-        .map(|scheduled| {
-            let last = latest.remove(&scheduled.task.id);
-            TaskView::new(scheduled, last)
-        })
-        .collect();
+    let now = Timestamp::now();
+    let tasks = sort_tasks(
+        tasks,
+        &last_completed,
+        now,
+        &state.time_zone,
+        &state.collator,
+    )
+    .into_iter()
+    .map(|scheduled| {
+        let last = latest.remove(&scheduled.task.id);
+        TaskView::new(scheduled, last)
+    })
+    .collect();
     Ok(Json(ProjectView {
         project: project.into(),
         groups: groups.into_iter().map(Into::into).collect(),

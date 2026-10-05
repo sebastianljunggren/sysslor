@@ -8,7 +8,7 @@ export type TaskView = {
  */
 last_completion: Completion | null, 
 /**
- * The calendar day (`YYYY-MM-DD`, family time zone) the task is due again.
+ * The calendar day (`YYYY-MM-DD`, configured time zone) the task is due again.
  * `null` if the task has never been completed, which means it is due now.
  */
 due: string | null, 

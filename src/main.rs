@@ -3,42 +3,53 @@ mod db;
 mod domain;
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::{Context, bail};
 use axum_extra::extract::cookie::Key;
+use icu_locale_core::Locale;
 use jiff::tz::TimeZone;
 use tracing_subscriber::EnvFilter;
 
 struct Config {
     database_url: String,
     bind_addr: SocketAddr,
-    family_tz: TimeZone,
+    time_zone: TimeZone,
+    collator: domain::Collator,
     admin_password: String,
     cookie_key: Key,
 }
 
 impl Config {
     fn from_env() -> anyhow::Result<Self> {
-        let database_url = env_or("DATABASE_URL", "sqlite://sysslor.db");
-        let bind_addr = env_or("BIND_ADDR", "0.0.0.0:8080")
+        let database_url = env_or("SYSSLOR_DATABASE_URL", "sqlite://sysslor.db");
+        let bind_addr = env_or("SYSSLOR_BIND_ADDR", "0.0.0.0:8080")
             .parse()
-            .context("BIND_ADDR is not a valid socket address")?;
-        let tz_name = env_or("FAMILY_TZ", "Europe/Stockholm");
-        let family_tz = TimeZone::get(&tz_name)
-            .with_context(|| format!("FAMILY_TZ {tz_name:?} is not a known time zone"))?;
+            .context("SYSSLOR_BIND_ADDR is not a valid socket address")?;
+        let tz_name = env_or("SYSSLOR_TIME_ZONE", "Europe/Stockholm");
+        let time_zone = TimeZone::get(&tz_name)
+            .with_context(|| format!("SYSSLOR_TIME_ZONE {tz_name:?} is not a known time zone"))?;
+        let locale_name = env_or("SYSSLOR_LOCALE", "en");
+        let locale = Locale::try_from_str(&locale_name)
+            .with_context(|| format!("SYSSLOR_LOCALE {locale_name:?} is not a valid locale"))?;
+        // A valid locale without its own rules (e.g. "xx") falls back to the generic
+        // Unicode order instead of failing.
+        let collator = domain::Collator::try_new(locale.into(), Default::default())
+            .with_context(|| format!("no collation data for SYSSLOR_LOCALE {locale_name:?}"))?;
         // No defaults for secrets: a forgotten Secret must not leave the app open.
-        let admin_password = required_env("ADMIN_PASSWORD")?;
-        let cookie_key = required_env("COOKIE_KEY")?;
+        let admin_password = required_env("SYSSLOR_ADMIN_PASSWORD")?;
+        let cookie_key = required_env("SYSSLOR_COOKIE_KEY")?;
         if cookie_key.len() < 32 {
             bail!(
-                "COOKIE_KEY must be at least 32 bytes, got {} (try `openssl rand -base64 48`)",
+                "SYSSLOR_COOKIE_KEY must be at least 32 bytes, got {} (try `openssl rand -base64 48`)",
                 cookie_key.len()
             );
         }
         Ok(Self {
             database_url,
             bind_addr,
-            family_tz,
+            time_zone,
+            collator,
             admin_password,
             cookie_key: Key::derive_from(cookie_key.as_bytes()),
         })
@@ -70,7 +81,8 @@ async fn main() -> anyhow::Result<()> {
     let events = api::Events::new();
     let state = api::AppState {
         pool,
-        family_tz: config.family_tz,
+        time_zone: config.time_zone,
+        collator: Arc::new(config.collator),
         events: events.clone(),
         admin_password: config.admin_password.into(),
         cookie_key: config.cookie_key,

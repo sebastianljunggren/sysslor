@@ -79,7 +79,7 @@ pub struct TaskView {
     pub task: Task,
     /// `null` if the task has never been completed.
     pub last_completion: Option<Completion>,
-    /// The calendar day (`YYYY-MM-DD`, family time zone) the task is due again.
+    /// The calendar day (`YYYY-MM-DD`, configured time zone) the task is due again.
     /// `null` if the task has never been completed, which means it is due now.
     pub due: Option<String>,
     /// Days since the last completion divided by the cadence in days.

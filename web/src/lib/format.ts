@@ -26,7 +26,7 @@ export function formatCadence({ amount, unit }: Cadence): string {
 }
 
 /**
- * The server computes `due` in the family time zone; comparing it with the device's
+ * The server computes `due` in the configured time zone; comparing it with the device's
  * local date assumes the device is in that zone, which holds for a family app.
  */
 export function formatDue(due: string | null, now = new Date()): string {

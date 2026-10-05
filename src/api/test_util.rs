@@ -17,7 +17,8 @@ pub const PASSWORD: &str = "correct horse battery staple";
 pub fn state(pool: &SqlitePool) -> AppState {
     AppState {
         pool: pool.clone(),
-        family_tz: TimeZone::get("Europe/Stockholm").unwrap(),
+        time_zone: TimeZone::get("Europe/Stockholm").unwrap(),
+        collator: crate::domain::test_collator("sv").into(),
         events: Events::new(),
         admin_password: PASSWORD.into(),
         cookie_key: Key::derive_from(&[7; 32]),
@@ -101,7 +102,7 @@ pub fn now_ms() -> i64 {
     jiff::Timestamp::now().as_millisecond()
 }
 
-/// Now minus `days` calendar days in the family time zone. Subtracting `days * 24h`
+/// Now minus `days` calendar days in the configured time zone. Subtracting `days * 24h`
 /// instead would make tests flaky around DST changes.
 pub fn days_ago(days: i64) -> i64 {
     jiff::Zoned::now()

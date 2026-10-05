@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use super::Collator;
 
 pub type GroupId = i64;
 
@@ -9,24 +9,16 @@ pub struct Group {
     pub name: String,
 }
 
-/// Sorts groups alphabetically, ignoring case. Ties (duplicate names) fall back to id so
-/// the order is stable across requests.
-pub fn sort_groups(groups: &mut [Group]) {
-    groups.sort_by(compare);
-}
-
-fn compare(a: &Group, b: &Group) -> Ordering {
-    // Code point order, so Swedish å/ä/ö end up as ä < å < ö. Good enough without a
-    // collation dependency.
-    a.name
-        .to_lowercase()
-        .cmp(&b.name.to_lowercase())
-        .then(a.id.cmp(&b.id))
+/// Sorts groups alphabetically for the collator's locale. Ties (duplicate names) fall
+/// back to id so the order is stable across requests.
+pub fn sort_groups(groups: &mut [Group], collator: &Collator) {
+    groups.sort_by(|a, b| collator.compare(&a.name, &b.name).then(a.id.cmp(&b.id)));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::test_collator;
 
     fn group(id: GroupId, name: &str) -> Group {
         Group {
@@ -47,14 +39,30 @@ mod tests {
             group(3, "attic"),
             group(4, "Kitchen garden"),
         ];
-        sort_groups(&mut groups);
+        sort_groups(&mut groups, &test_collator("en"));
         assert_eq!(ids(&groups), [3, 2, 1, 4]);
+    }
+
+    #[test]
+    fn sorts_by_the_locales_alphabet() {
+        let mut groups = vec![
+            group(1, "Ört"),
+            group(2, "Äng"),
+            group(3, "Ås"),
+            group(4, "Zon"),
+            group(5, "Apa"),
+        ];
+        sort_groups(&mut groups, &test_collator("sv"));
+        assert_eq!(ids(&groups), [5, 4, 3, 2, 1]);
+        // English treats the dotted and ringed letters as variants of a and o.
+        sort_groups(&mut groups, &test_collator("en"));
+        assert_eq!(ids(&groups), [2, 5, 3, 1, 4]);
     }
 
     #[test]
     fn duplicate_names_fall_back_to_id() {
         let mut groups = vec![group(3, "Hall"), group(1, "hall"), group(2, "Hall")];
-        sort_groups(&mut groups);
+        sort_groups(&mut groups, &test_collator("en"));
         assert_eq!(ids(&groups), [1, 2, 3]);
     }
 }

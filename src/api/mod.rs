@@ -22,13 +22,16 @@ use axum_extra::extract::cookie::Key;
 use jiff::tz::TimeZone;
 use sqlx::SqlitePool;
 
+use crate::domain::Collator;
+
 pub use events::Events;
 use types::ErrorBody;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: SqlitePool,
-    pub family_tz: TimeZone,
+    pub time_zone: TimeZone,
+    pub collator: Arc<Collator>,
     pub events: Events,
     pub admin_password: Arc<str>,
     pub cookie_key: Key,

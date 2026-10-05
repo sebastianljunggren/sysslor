@@ -5,7 +5,7 @@ use jiff::civil::Date;
 use jiff::tz::TimeZone;
 use jiff::{Span, Timestamp};
 
-use super::{Cadence, GroupId};
+use super::{Cadence, Collator, GroupId};
 
 pub type TaskId = i64;
 
@@ -25,7 +25,7 @@ pub enum Schedule {
     NeverCompleted,
     Completed {
         last_completed: Timestamp,
-        /// The calendar day (in the family time zone) the task is due again.
+        /// The calendar day (in the configured time zone) the task is due again.
         due: Date,
         /// Calendar days since the last completion divided by the cadence in days.
         /// `>= 1.0` means the task is due or overdue.
@@ -84,13 +84,14 @@ pub struct ScheduledTask {
 /// 1. Overdue tasks (`urgency >= 1`), by priority descending, then urgency descending.
 /// 2. Remaining tasks, by urgency descending.
 ///
-/// Remaining ties are broken by priority, then name, then id, so the order is stable
-/// across devices.
+/// Remaining ties are broken by priority, then name (in the collator's alphabetical
+/// order), then id, so the order is stable across devices.
 pub fn sort_tasks(
     tasks: Vec<Task>,
     last_completions: &HashMap<TaskId, Timestamp>,
     now: Timestamp,
     tz: &TimeZone,
+    collator: &Collator,
 ) -> Vec<ScheduledTask> {
     let mut scheduled: Vec<ScheduledTask> = tasks
         .into_iter()
@@ -100,16 +101,16 @@ pub fn sort_tasks(
             ScheduledTask { task, schedule }
         })
         .collect();
-    scheduled.sort_by(compare);
+    scheduled.sort_by(|a, b| compare(a, b, collator));
     scheduled
 }
 
-fn compare(a: &ScheduledTask, b: &ScheduledTask) -> Ordering {
+fn compare(a: &ScheduledTask, b: &ScheduledTask, collator: &Collator) -> Ordering {
     let by_urgency = || b.schedule.urgency().total_cmp(&a.schedule.urgency());
     let by_priority = || b.task.priority.cmp(&a.task.priority);
     let tie_break = || {
         by_priority()
-            .then_with(|| a.task.name.cmp(&b.task.name))
+            .then_with(|| collator.compare(&a.task.name, &b.task.name))
             .then_with(|| a.task.id.cmp(&b.task.id))
     };
 
@@ -124,6 +125,7 @@ fn compare(a: &ScheduledTask, b: &ScheduledTask) -> Ordering {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::test_collator;
     use jiff::Zoned;
     use jiff::civil::date;
 
@@ -188,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn days_are_counted_in_the_family_time_zone() {
+    fn days_are_counted_in_the_configured_time_zone() {
         // 23:30 and 00:10 local are 21:30 and 22:10 UTC on the same UTC day.
         let last = at("2026-10-05T23:30[Europe/Stockholm]");
         let now = at("2026-10-06T00:10[Europe/Stockholm]");
@@ -278,7 +280,7 @@ mod tests {
             (5, at("2026-10-01T12:00[Europe/Stockholm]")),
         ]);
 
-        let sorted = sort_tasks(tasks, &last, now, &stockholm());
+        let sorted = sort_tasks(tasks, &last, now, &stockholm(), &test_collator("sv"));
         assert_eq!(ids(&sorted), [4, 3, 2, 1, 5]);
     }
 
@@ -296,7 +298,7 @@ mod tests {
             (3, at("2026-10-07T12:00[Europe/Stockholm]")),
         ]);
 
-        let sorted = sort_tasks(tasks, &last, now, &stockholm());
+        let sorted = sort_tasks(tasks, &last, now, &stockholm(), &test_collator("sv"));
         assert_eq!(ids(&sorted), [3, 2, 1]);
     }
 
@@ -312,7 +314,7 @@ mod tests {
             (2, at("2026-10-03T12:00[Europe/Stockholm]")),
         ]);
 
-        let sorted = sort_tasks(tasks, &last, now, &stockholm());
+        let sorted = sort_tasks(tasks, &last, now, &stockholm(), &test_collator("sv"));
         assert_eq!(ids(&sorted), [2, 1]);
     }
 
@@ -336,7 +338,21 @@ mod tests {
             (4, completed),
         ]);
 
-        let sorted = sort_tasks(tasks, &last, now, &stockholm());
+        let sorted = sort_tasks(tasks, &last, now, &stockholm(), &test_collator("sv"));
         assert_eq!(ids(&sorted), [2, 3, 4, 1]);
+    }
+
+    #[test]
+    fn name_ties_follow_the_collators_alphabet() {
+        let now = at("2026-10-10T12:00[Europe/Stockholm]");
+        let mut tasks = vec![task(1, Cadence::days(7), 0), task(2, Cadence::days(7), 0)];
+        // Byte order would put Ä (U+00C4) before Å (U+00C5); Swedish has Å first.
+        tasks[0].name = "Äta".into();
+        tasks[1].name = "Åka".into();
+        let completed = at("2026-10-09T12:00[Europe/Stockholm]");
+        let last = HashMap::from([(1, completed), (2, completed)]);
+
+        let sorted = sort_tasks(tasks, &last, now, &stockholm(), &test_collator("sv"));
+        assert_eq!(ids(&sorted), [2, 1]);
     }
 }

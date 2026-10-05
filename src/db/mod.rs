@@ -14,7 +14,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, S
 
 pub async fn connect(database_url: &str) -> anyhow::Result<SqlitePool> {
     let options = SqliteConnectOptions::from_str(database_url)
-        .with_context(|| format!("invalid DATABASE_URL {database_url:?}"))?
+        .with_context(|| format!("invalid SYSSLOR_DATABASE_URL {database_url:?}"))?
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Normal)

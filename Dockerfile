@@ -27,8 +27,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 FROM scratch
 COPY --from=build /sysslor /sysslor
-ENV DATABASE_URL=sqlite:///data/sysslor.db \
-    BIND_ADDR=0.0.0.0:8080
+ENV SYSSLOR_DATABASE_URL=sqlite:///data/sysslor.db \
+    SYSSLOR_BIND_ADDR=0.0.0.0:8080
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/sysslor"]
