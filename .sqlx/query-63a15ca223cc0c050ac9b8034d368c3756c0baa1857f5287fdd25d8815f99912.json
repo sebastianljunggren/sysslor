@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tasks SET archived_at = ? WHERE id = ? AND archived_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "63a15ca223cc0c050ac9b8034d368c3756c0baa1857f5287fdd25d8815f99912"
+}

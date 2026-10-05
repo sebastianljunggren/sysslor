@@ -1,0 +1,5 @@
+[env]
+# ts-rs exports the API types here on `cargo test`.
+TS_RS_EXPORT_DIR = { value = "web/src/lib/api", relative = true }
+# Timestamps are unix ms and ids are small, both fit in a JS number.
+TS_RS_LARGE_INT = "number"

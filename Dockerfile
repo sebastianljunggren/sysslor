@@ -15,8 +15,11 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src src
 COPY migrations migrations
+COPY .sqlx .sqlx
 COPY --from=web /web/dist web/dist
 ARG TARGETARCH
+# There is no database at build time, so sqlx checks queries against .sqlx/.
+ENV SQLX_OFFLINE=true
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target,id=sysslor-target-$TARGETARCH \
     cargo build --release --locked \

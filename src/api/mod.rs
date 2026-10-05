@@ -1,22 +1,45 @@
 mod assets;
+mod completions;
+mod executors;
+mod projects;
+mod tasks;
+#[cfg(test)]
+mod test_util;
+pub mod types;
 
-use axum::Router;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::get;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post, put};
+use axum::{Json, Router};
 use jiff::tz::TimeZone;
 use sqlx::SqlitePool;
+
+use types::ErrorBody;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: SqlitePool,
-    #[allow(dead_code)] // used by the task endpoints in milestone 2
     pub family_tz: TimeZone,
 }
 
 pub fn router(state: AppState) -> Router {
+    let api = Router::new()
+        .route("/projects/{id}", get(projects::get))
+        .route("/projects/{id}/tasks", post(tasks::create))
+        .route("/tasks/{id}", put(tasks::update).delete(tasks::archive))
+        .route("/executors", get(executors::list).post(executors::create))
+        .route("/executors/{id}", put(executors::rename))
+        .route(
+            "/completions/{id}",
+            put(completions::put).delete(completions::delete),
+        )
+        // Without this, unknown API paths would get the SPA's index.html.
+        .fallback(|| async { ApiError::NotFound("no such endpoint") });
+
     Router::new()
         .route("/healthz", get(healthz))
+        .nest("/api", api)
         .fallback(assets::serve)
         .with_state(state)
 }
@@ -31,42 +54,76 @@ async fn healthz(State(state): State<AppState>) -> StatusCode {
     }
 }
 
+#[derive(Debug)]
+pub enum ApiError {
+    NotFound(&'static str),
+    /// The request is well-formed JSON but its values are not acceptable.
+    Invalid(String),
+    Internal(anyhow::Error),
+}
+
+impl From<anyhow::Error> for ApiError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::Internal(err)
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        let (status, error) = match self {
+            Self::NotFound(what) => (StatusCode::NOT_FOUND, what.to_owned()),
+            Self::Invalid(message) => (StatusCode::UNPROCESSABLE_ENTITY, message),
+            Self::Internal(err) => {
+                tracing::error!("request failed: {err:#}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal error".to_owned(),
+                )
+            }
+        };
+        (status, Json(ErrorBody { error })).into_response()
+    }
+}
+
+pub type ApiResult<T> = Result<T, ApiError>;
+
+/// Trims a user-supplied name and rejects empty or absurdly long ones.
+fn validate_name(name: &str) -> ApiResult<String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(ApiError::Invalid("name must not be empty".to_owned()));
+    }
+    if name.chars().count() > 200 {
+        return Err(ApiError::Invalid(
+            "name must be at most 200 characters".to_owned(),
+        ));
+    }
+    Ok(name.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::body::Body;
-    use axum::http::Request;
-    use http_body_util::BodyExt;
-    use tower::ServiceExt;
+    use super::test_util::*;
+    use axum::http::StatusCode;
+    use sqlx::SqlitePool;
 
-    async fn app() -> Router {
-        let pool = crate::db::connect("sqlite::memory:").await.unwrap();
-        router(AppState {
-            pool,
-            family_tz: TimeZone::UTC,
-        })
-    }
-
-    async fn get(app: Router, uri: &str) -> (StatusCode, String) {
-        let response = app
-            .oneshot(Request::get(uri).body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-        let status = response.status();
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        (status, String::from_utf8_lossy(&body).into_owned())
-    }
-
-    #[tokio::test]
-    async fn healthz_is_ok() {
-        let (status, _) = get(app().await, "/healthz").await;
+    #[sqlx::test]
+    async fn healthz_is_ok(pool: SqlitePool) {
+        let (status, _) = request(&pool, "GET", "/healthz", None).await;
         assert_eq!(status, StatusCode::OK);
     }
 
-    #[tokio::test]
-    async fn unknown_paths_fall_back_to_index() {
-        let (status, body) = get(app().await, "/some/client/route").await;
+    #[sqlx::test]
+    async fn unknown_paths_fall_back_to_index(pool: SqlitePool) {
+        let (status, body) = request(&pool, "GET", "/some/client/route", None).await;
         assert_eq!(status, StatusCode::OK);
         assert!(body.contains("<html"));
+    }
+
+    #[sqlx::test]
+    async fn unknown_api_paths_are_not_found(pool: SqlitePool) {
+        let (status, body) = request(&pool, "GET", "/api/nope", None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(body.contains("\"error\""));
     }
 }

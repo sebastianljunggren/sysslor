@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT c.id AS \"id!\", c.task_id AS \"task_id!\", c.executor_id AS \"executor_id!\",\n               MAX(c.completed_at) AS \"completed_at!: i64\"\n           FROM completions c\n           JOIN tasks t ON t.id = c.task_id\n           WHERE t.project_id = ? AND t.archived_at IS NULL\n           GROUP BY c.task_id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "completions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "task_id!",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "completions",
+            "name": "task_id"
+          }
+        }
+      },
+      {
+        "name": "executor_id!",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "completions",
+            "name": "executor_id"
+          }
+        }
+      },
+      {
+        "name": "completed_at!: i64",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "fad7710e527660ffa9d711bc670fc7a8d736a596e943e249136d24551c6b451b"
+}

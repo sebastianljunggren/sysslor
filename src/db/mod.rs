@@ -1,7 +1,13 @@
+pub mod completions;
+pub mod executors;
+pub mod projects;
+pub mod tasks;
+
 use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::Context;
+use jiff::Timestamp;
 use sqlx::SqlitePool;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 
@@ -27,4 +33,13 @@ pub async fn connect(database_url: &str) -> anyhow::Result<SqlitePool> {
         .context("failed to run migrations")?;
 
     Ok(pool)
+}
+
+fn to_millis(timestamp: Timestamp) -> i64 {
+    timestamp.as_millisecond()
+}
+
+fn from_millis(millis: i64) -> anyhow::Result<Timestamp> {
+    Timestamp::from_millisecond(millis)
+        .with_context(|| format!("timestamp {millis} ms is out of range"))
 }

@@ -12,6 +12,7 @@ pub struct Cadence {
 }
 
 impl Cadence {
+    #[cfg(test)]
     pub fn days(amount: u32) -> Self {
         Self {
             amount,
@@ -19,6 +20,7 @@ impl Cadence {
         }
     }
 
+    #[cfg(test)]
     pub fn weeks(amount: u32) -> Self {
         Self {
             amount,

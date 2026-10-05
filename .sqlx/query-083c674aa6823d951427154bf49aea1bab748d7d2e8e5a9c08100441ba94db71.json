@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tasks SET name = ?, cadence_amount = ?, cadence_unit = ?, priority = ?\n         WHERE id = ? AND archived_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "083c674aa6823d951427154bf49aea1bab748d7d2e8e5a9c08100441ba94db71"
+}

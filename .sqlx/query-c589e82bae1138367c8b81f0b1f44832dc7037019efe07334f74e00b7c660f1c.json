@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO tasks (project_id, name, cadence_amount, cadence_unit, priority, created_at)\n         SELECT id, ?, ?, ?, ?, ? FROM projects WHERE id = ?\n         RETURNING id AS \"id!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c589e82bae1138367c8b81f0b1f44832dc7037019efe07334f74e00b7c660f1c"
+}
