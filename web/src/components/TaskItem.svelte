@@ -74,7 +74,11 @@
           <span class="priority" title={m.priority_value({ priority: task.priority })}>{'!'.repeat(task.priority)}</span>
         {/if}
         {#if group}
-          <span class="group" style:border-color={group.color ? `var(--${group.color})` : undefined}>{group.name}</span>
+          <span
+            class="group"
+            class:colored={group.color !== null}
+            style:--group-color={group.color ? `var(--${group.color})` : undefined}>{group.name}</span
+          >
         {/if}
       </span>
       <span class="meta">
@@ -158,6 +162,13 @@
     font-size: 0.8rem;
     font-weight: normal;
     vertical-align: middle;
+  }
+
+  /* A faint fill under a stronger border, so both read as the same color but stay distinct. */
+  .group.colored {
+    border-color: color-mix(in srgb, var(--group-color) 70%, transparent);
+    background: color-mix(in srgb, var(--group-color) 18%, transparent);
+    color: var(--fg);
   }
 
   .meta {
