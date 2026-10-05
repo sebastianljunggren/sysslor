@@ -1,4 +1,5 @@
 mod assets;
+mod auth;
 mod completions;
 mod events;
 mod executors;
@@ -8,11 +9,15 @@ mod tasks;
 mod test_util;
 pub mod types;
 
-use axum::extract::State;
+use std::sync::Arc;
+
+use axum::extract::{FromRef, State};
 use axum::http::StatusCode;
+use axum::middleware;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
+use axum_extra::extract::cookie::Key;
 use jiff::tz::TimeZone;
 use sqlx::SqlitePool;
 
@@ -24,6 +29,14 @@ pub struct AppState {
     pub pool: SqlitePool,
     pub family_tz: TimeZone,
     pub events: Events,
+    pub admin_password: Arc<str>,
+    pub cookie_key: Key,
+}
+
+impl FromRef<AppState> for Key {
+    fn from_ref(state: &AppState) -> Self {
+        state.cookie_key.clone()
+    }
 }
 
 pub fn router(state: AppState) -> Router {
@@ -38,6 +51,13 @@ pub fn router(state: AppState) -> Router {
             "/completions/{id}",
             put(completions::put).delete(completions::delete),
         )
+        // A route layer, so it doesn't apply to the routes merged below.
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_session,
+        ))
+        .merge(auth::login_routes())
+        .route("/logout", post(auth::logout))
         // Without this, unknown API paths would get the SPA's index.html.
         .fallback(|| async { ApiError::NotFound("no such endpoint") });
 
@@ -61,6 +81,8 @@ async fn healthz(State(state): State<AppState>) -> StatusCode {
 #[derive(Debug)]
 pub enum ApiError {
     NotFound(&'static str),
+    Unauthorized(&'static str),
+    TooManyRequests,
     /// The request is well-formed JSON but its values are not acceptable.
     Invalid(String),
     Internal(anyhow::Error),
@@ -76,6 +98,11 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, error) = match self {
             Self::NotFound(what) => (StatusCode::NOT_FOUND, what.to_owned()),
+            Self::Unauthorized(why) => (StatusCode::UNAUTHORIZED, why.to_owned()),
+            Self::TooManyRequests => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "too many attempts, try again later".to_owned(),
+            ),
             Self::Invalid(message) => (StatusCode::UNPROCESSABLE_ENTITY, message),
             Self::Internal(err) => {
                 tracing::error!("request failed: {err:#}");

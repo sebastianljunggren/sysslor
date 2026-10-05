@@ -1,6 +1,14 @@
 import type { Executor } from './api/Executor';
 import type { ProjectView } from './api/ProjectView';
-import { DEFAULT_PROJECT, getProject, listExecutors, subscribe } from './client';
+import {
+  DEFAULT_PROJECT,
+  getProject,
+  isUnauthorized,
+  listExecutors,
+  login,
+  logout,
+  subscribe,
+} from './client';
 
 const EXECUTOR_KEY = 'sysslor.executor';
 
@@ -10,6 +18,8 @@ export const data = $state({
   /** The executor last picked on this device. May no longer exist. */
   executorId: loadExecutorId(),
   connected: true,
+  /** Assumed until the server says otherwise, so logged-in devices skip a round trip. */
+  loggedIn: true,
   loadError: null as string | null,
   actionError: null as string | null,
 });
@@ -29,7 +39,8 @@ function latest<T>(load: () => Promise<T>, apply: (value: T) => void): () => Pro
       apply(value);
       data.loadError = null;
     } catch (error) {
-      if (current === seq) data.loadError = message(error);
+      if (isUnauthorized(error)) loggedOut();
+      else if (current === seq) data.loadError = message(error);
     }
   };
 }
@@ -68,9 +79,39 @@ export async function mutate<T>(write: () => Promise<T>): Promise<T | undefined>
     refreshAll();
     return result;
   } catch (error) {
-    data.actionError = message(error);
+    if (isUnauthorized(error)) loggedOut();
+    else data.actionError = message(error);
     return undefined;
   }
+}
+
+/** Returns an error message to show, or `null` once logged in. */
+export async function logIn(password: string): Promise<string | null> {
+  try {
+    await login({ password });
+  } catch (error) {
+    return isUnauthorized(error) ? 'Wrong password.' : message(error);
+  }
+  data.loadError = null;
+  data.actionError = null;
+  data.loggedIn = true;
+  return null;
+}
+
+export async function logOut() {
+  try {
+    await logout();
+  } catch (error) {
+    data.actionError = message(error);
+    return;
+  }
+  loggedOut();
+}
+
+function loggedOut() {
+  data.view = null;
+  data.executors = [];
+  data.loggedIn = false;
 }
 
 export function pickExecutor(id: number) {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import EditView from './components/EditView.svelte';
+  import LoginView from './components/LoginView.svelte';
   import MainView from './components/MainView.svelte';
   import { connect, data, refreshAll } from './lib/data.svelte';
 
@@ -13,6 +14,7 @@
   });
 
   $effect(() => {
+    if (!data.loggedIn) return;
     // The event stream also triggers a fetch once connected, but don't wait for it.
     refreshAll();
     return connect();
@@ -22,34 +24,40 @@
 <main>
   <header>
     <h1>{data.view?.project.name ?? 'Sysslor'}</h1>
-    {#if hash === '#edit'}
-      <a class="button" href="#/">Done</a>
-    {:else}
-      <a class="button" href="#edit">Edit</a>
+    {#if data.loggedIn}
+      {#if hash === '#edit'}
+        <a class="button" href="#/">Done</a>
+      {:else}
+        <a class="button" href="#edit">Edit</a>
+      {/if}
     {/if}
   </header>
 
-  {#if !data.connected || data.loadError}
-    <p class="banner" role="status">
-      {data.loadError ?? 'No connection to the server.'} Retrying…
-    </p>
-  {/if}
-
-  {#if data.actionError}
-    <p class="banner error" role="alert">
-      {data.actionError}
-      <button class="link" onclick={() => (data.actionError = null)}>Dismiss</button>
-    </p>
-  {/if}
-
-  {#if data.view === null}
-    {#if !data.loadError}
-      <p class="muted">Loading…</p>
-    {/if}
-  {:else if hash === '#edit'}
-    <EditView view={data.view} executors={data.executors} />
+  {#if !data.loggedIn}
+    <LoginView />
   {:else}
-    <MainView view={data.view} executors={data.executors} />
+    {#if !data.connected || data.loadError}
+      <p class="banner" role="status">
+        {data.loadError ?? 'No connection to the server.'} Retrying…
+      </p>
+    {/if}
+
+    {#if data.actionError}
+      <p class="banner error" role="alert">
+        {data.actionError}
+        <button class="link" onclick={() => (data.actionError = null)}>Dismiss</button>
+      </p>
+    {/if}
+
+    {#if data.view === null}
+      {#if !data.loadError}
+        <p class="muted">Loading…</p>
+      {/if}
+    {:else if hash === '#edit'}
+      <EditView view={data.view} executors={data.executors} />
+    {:else}
+      <MainView view={data.view} executors={data.executors} />
+    {/if}
   {/if}
 </main>
 

@@ -117,6 +117,13 @@ pub enum Event {
     Changed { project: Option<i64> },
 }
 
+/// Body for `POST /api/login`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct LoginInput {
+    pub password: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ErrorBody {

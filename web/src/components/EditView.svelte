@@ -4,7 +4,7 @@
   import type { TaskInput } from '../lib/api/TaskInput';
   import type { TaskView } from '../lib/api/TaskView';
   import { archiveTask, createExecutor, createTask, renameExecutor, updateTask } from '../lib/client';
-  import { mutate } from '../lib/data.svelte';
+  import { logOut, mutate } from '../lib/data.svelte';
   import { formatCadence } from '../lib/format';
   import TaskForm from './TaskForm.svelte';
 
@@ -103,6 +103,11 @@
     <input class="grow" bind:value={newExecutor} placeholder="Name" required maxlength="200" />
     <button type="submit" class="primary">Add</button>
   </form>
+</section>
+
+<section>
+  <h2>This device</h2>
+  <button onclick={logOut}>Log out</button>
 </section>
 
 <style>

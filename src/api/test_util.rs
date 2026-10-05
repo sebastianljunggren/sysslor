@@ -1,6 +1,8 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
+use axum_extra::extract::SignedCookieJar;
+use axum_extra::extract::cookie::Key;
 use http_body_util::BodyExt;
 use jiff::tz::TimeZone;
 use serde::de::DeserializeOwned;
@@ -8,14 +10,31 @@ use serde_json::Value;
 use sqlx::SqlitePool;
 use tower::ServiceExt;
 
-use super::{AppState, Events, router};
+use super::{AppState, Events, auth, router};
+
+pub const PASSWORD: &str = "correct horse battery staple";
 
 pub fn state(pool: &SqlitePool) -> AppState {
     AppState {
         pool: pool.clone(),
         family_tz: TimeZone::get("Europe/Stockholm").unwrap(),
         events: Events::new(),
+        admin_password: PASSWORD.into(),
+        cookie_key: Key::derive_from(&[7; 32]),
     }
+}
+
+/// A `Cookie` header value with a session issued at `issued_at`.
+pub fn session_cookie(state: &AppState, issued_at: jiff::Timestamp) -> String {
+    let jar = SignedCookieJar::new(state.cookie_key.clone()).add(auth::session_cookie(issued_at));
+    let response = jar.into_response();
+    let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
+    set_cookie.split(';').next().unwrap().to_owned()
+}
+
+/// Sends a request through the full router as is, without logging in.
+pub async fn send(state: &AppState, request: Request<Body>) -> Response {
+    router(state.clone()).oneshot(request).await.unwrap()
 }
 
 /// Sends one request through the full router and returns the status and raw body.
@@ -42,13 +61,17 @@ pub async fn request_with(
 }
 
 /// Like [`request_with`], but returns the response without reading the body.
+/// Sends a valid session cookie.
 pub async fn response_with(
     state: &AppState,
     method: &str,
     uri: &str,
     body: Option<Value>,
 ) -> Response {
-    let builder = Request::builder().method(method).uri(uri);
+    let builder = Request::builder().method(method).uri(uri).header(
+        header::COOKIE,
+        session_cookie(state, jiff::Timestamp::now()),
+    );
     let request = match body {
         Some(json) => builder
             .header(header::CONTENT_TYPE, "application/json")
@@ -56,7 +79,7 @@ pub async fn response_with(
         None => builder.body(Body::empty()),
     }
     .unwrap();
-    router(state.clone()).oneshot(request).await.unwrap()
+    send(state, request).await
 }
 
 /// Like [`request`], but parses the body as JSON.

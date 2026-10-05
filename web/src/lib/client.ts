@@ -4,6 +4,7 @@ import type { ErrorBody } from './api/ErrorBody';
 import type { Event } from './api/Event';
 import type { Executor } from './api/Executor';
 import type { ExecutorInput } from './api/ExecutorInput';
+import type { LoginInput } from './api/LoginInput';
 import type { ProjectView } from './api/ProjectView';
 import type { Task } from './api/Task';
 import type { TaskInput } from './api/TaskInput';
@@ -11,7 +12,18 @@ import type { TaskInput } from './api/TaskInput';
 // Only one project exists until multiple projects are supported.
 export const DEFAULT_PROJECT = 1;
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  /** The HTTP status, or `null` if the server couldn't be reached. */
+  readonly status: number | null;
+
+  constructor(message: string, status: number | null) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export const isUnauthorized = (error: unknown) =>
+  error instanceof ApiError && error.status === 401;
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let response: Response;
@@ -22,17 +34,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError('Could not reach the server.');
+    throw new ApiError('Could not reach the server.', null);
   }
   if (!response.ok) {
     const error = await response
       .json()
       .then((body: ErrorBody) => body.error)
       .catch(() => response.statusText);
-    throw new ApiError(`${error} (${response.status})`);
+    throw new ApiError(`${error} (${response.status})`, response.status);
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
+
+export const login = (input: LoginInput) => request<void>('POST', '/login', input);
+export const logout = () => request<void>('POST', '/logout');
 
 export const getProject = (id: number) => request<ProjectView>('GET', `/projects/${id}`);
 
@@ -61,18 +76,33 @@ export function subscribe(
   onChange: (project: number | null) => void,
   onConnection: (connected: boolean) => void,
 ): () => void {
-  // EventSource reconnects by itself after errors.
-  const source = new EventSource('/api/events');
-  source.onopen = () => {
-    onConnection(true);
-    onChange(null);
+  let source: EventSource;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  const open = () => {
+    source = new EventSource('/api/events');
+    source.onopen = () => {
+      onConnection(true);
+      onChange(null);
+    };
+    source.onerror = () => {
+      onConnection(false);
+      // EventSource retries network errors by itself, but gives up for good on an
+      // error status: a 401 (logged out) or a 502 from the ingress during a deploy.
+      if (source.readyState !== EventSource.CLOSED) return;
+      // A refetch surfaces the reason, e.g. by showing the login form.
+      onChange(null);
+      retry = setTimeout(open, 5000);
+    };
+    source.onmessage = (message) => {
+      const event: Event = JSON.parse(message.data);
+      onChange(event.project);
+    };
   };
-  source.onerror = () => onConnection(false);
-  source.onmessage = (message) => {
-    const event: Event = JSON.parse(message.data);
-    onChange(event.project);
+  open();
+  return () => {
+    clearTimeout(retry);
+    source.close();
   };
-  return () => source.close();
 }
 
 /** RFC 9562 UUIDv7: 48-bit millisecond timestamp, then random bits. */
