@@ -20,6 +20,7 @@ pub async fn create(
     else {
         return Err(ApiError::NotFound("no such project"));
     };
+    state.events.changed(Some(project_id));
     Ok((StatusCode::CREATED, Json(task.into())))
 }
 
@@ -29,9 +30,10 @@ pub async fn update(
     Json(input): Json<TaskInput>,
 ) -> ApiResult<Json<Task>> {
     let fields = validate(input)?;
-    let Some(task) = db::tasks::update(&state.pool, id, &fields).await? else {
+    let Some((project_id, task)) = db::tasks::update(&state.pool, id, &fields).await? else {
         return Err(ApiError::NotFound("no such task"));
     };
+    state.events.changed(Some(project_id));
     Ok(Json(task.into()))
 }
 
@@ -40,9 +42,10 @@ pub async fn archive(
     State(state): State<AppState>,
     Path(id): Path<TaskId>,
 ) -> ApiResult<StatusCode> {
-    if !db::tasks::archive(&state.pool, id, Timestamp::now()).await? {
+    let Some(project_id) = db::tasks::archive(&state.pool, id, Timestamp::now()).await? else {
         return Err(ApiError::NotFound("no such task"));
-    }
+    };
+    state.events.changed(Some(project_id));
     Ok(StatusCode::NO_CONTENT)
 }
 

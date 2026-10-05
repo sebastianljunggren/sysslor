@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM completions WHERE id = ?\n           RETURNING (SELECT project_id FROM tasks WHERE tasks.id = completions.task_id)\n               AS \"project_id!: ProjectId\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "project_id!: ProjectId",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "project_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "84b6c8700077a19ad3f79a73f9c3ef71925cf1b2e5074b53068134973aefab7c"
+}

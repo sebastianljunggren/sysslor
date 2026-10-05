@@ -18,6 +18,8 @@ pub async fn create(
 ) -> ApiResult<(StatusCode, Json<Executor>)> {
     let name = validate_name(&input.name)?;
     let executor = db::executors::create(&state.pool, &name).await?;
+    // Executors are shared by all projects.
+    state.events.changed(None);
     Ok((StatusCode::CREATED, Json(executor.into())))
 }
 
@@ -30,6 +32,7 @@ pub async fn rename(
     let Some(executor) = db::executors::rename(&state.pool, id, &name).await? else {
         return Err(ApiError::NotFound("no such executor"));
     };
+    state.events.changed(None);
     Ok(Json(executor.into()))
 }
 

@@ -19,8 +19,9 @@ pub struct Completion {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Upsert {
-    Created,
-    Updated,
+    /// Carries the project of the completed task.
+    Created(ProjectId),
+    Updated(ProjectId),
     /// The completion already exists with exactly these values.
     Unchanged,
     UnknownTask,
@@ -51,15 +52,15 @@ pub async fn upsert(pool: &SqlitePool, completion: &Completion) -> anyhow::Resul
         return Ok(Upsert::Unchanged);
     }
 
-    let task_is_active = sqlx::query_scalar!(
-        r#"SELECT EXISTS (SELECT 1 FROM tasks WHERE id = ? AND archived_at IS NULL) AS "active!: bool""#,
+    let project_id = sqlx::query_scalar!(
+        "SELECT project_id FROM tasks WHERE id = ? AND archived_at IS NULL",
         completion.task_id
     )
-    .fetch_one(&mut *tx)
+    .fetch_optional(&mut *tx)
     .await?;
-    if !task_is_active {
+    let Some(project_id) = project_id else {
         return Ok(Upsert::UnknownTask);
-    }
+    };
     let executor_exists = sqlx::query_scalar!(
         r#"SELECT EXISTS (SELECT 1 FROM executors WHERE id = ?) AS "exists!: bool""#,
         completion.executor_id
@@ -86,19 +87,25 @@ pub async fn upsert(pool: &SqlitePool, completion: &Completion) -> anyhow::Resul
     tx.commit().await?;
 
     Ok(if existing.is_some() {
-        Upsert::Updated
+        Upsert::Updated(project_id)
     } else {
-        Upsert::Created
+        Upsert::Created(project_id)
     })
 }
 
 /// Deleting a completion that does not exist is not an error, so undo is idempotent.
-pub async fn delete(pool: &SqlitePool, id: Uuid) -> anyhow::Result<()> {
+/// Returns the project of the completed task, or `None` if nothing was deleted.
+pub async fn delete(pool: &SqlitePool, id: Uuid) -> anyhow::Result<Option<ProjectId>> {
     let id = id.to_string();
-    sqlx::query!("DELETE FROM completions WHERE id = ?", id)
-        .execute(pool)
-        .await?;
-    Ok(())
+    let project_id = sqlx::query_scalar!(
+        r#"DELETE FROM completions WHERE id = ?
+           RETURNING (SELECT project_id FROM tasks WHERE tasks.id = completions.task_id)
+               AS "project_id!: ProjectId""#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(project_id)
 }
 
 /// The latest completion of every active task in a project.

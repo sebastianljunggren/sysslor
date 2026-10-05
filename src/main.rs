@@ -46,9 +46,11 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     let pool = db::connect(&config.database_url).await?;
 
+    let events = api::Events::new();
     let state = api::AppState {
         pool,
         family_tz: config.family_tz,
+        events: events.clone(),
     };
     let app = api::router(state);
 
@@ -57,7 +59,10 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("failed to bind {}", config.bind_addr))?;
     tracing::info!("listening on {}", config.bind_addr);
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            events.shutdown();
+        })
         .await?;
     Ok(())
 }

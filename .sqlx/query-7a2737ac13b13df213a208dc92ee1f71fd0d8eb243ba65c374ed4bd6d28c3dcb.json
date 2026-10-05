@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tasks SET archived_at = ? WHERE id = ? AND archived_at IS NULL\n         RETURNING project_id",
+  "describe": {
+    "columns": [
+      {
+        "name": "project_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "project_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7a2737ac13b13df213a208dc92ee1f71fd0d8eb243ba65c374ed4bd6d28c3dcb"
+}

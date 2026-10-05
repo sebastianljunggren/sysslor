@@ -1,5 +1,6 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
+use axum::response::Response;
 use http_body_util::BodyExt;
 use jiff::tz::TimeZone;
 use serde::de::DeserializeOwned;
@@ -7,7 +8,15 @@ use serde_json::Value;
 use sqlx::SqlitePool;
 use tower::ServiceExt;
 
-use super::{AppState, router};
+use super::{AppState, Events, router};
+
+pub fn state(pool: &SqlitePool) -> AppState {
+    AppState {
+        pool: pool.clone(),
+        family_tz: TimeZone::get("Europe/Stockholm").unwrap(),
+        events: Events::new(),
+    }
+}
 
 /// Sends one request through the full router and returns the status and raw body.
 pub async fn request(
@@ -16,10 +25,29 @@ pub async fn request(
     uri: &str,
     body: Option<Value>,
 ) -> (StatusCode, String) {
-    let app = router(AppState {
-        pool: pool.clone(),
-        family_tz: TimeZone::get("Europe/Stockholm").unwrap(),
-    });
+    request_with(&state(pool), method, uri, body).await
+}
+
+/// Like [`request`], but with a given state, e.g. to observe its events.
+pub async fn request_with(
+    state: &AppState,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> (StatusCode, String) {
+    let response = response_with(state, method, uri, body).await;
+    let status = response.status();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    (status, String::from_utf8_lossy(&body).into_owned())
+}
+
+/// Like [`request_with`], but returns the response without reading the body.
+pub async fn response_with(
+    state: &AppState,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> Response {
     let builder = Request::builder().method(method).uri(uri);
     let request = match body {
         Some(json) => builder
@@ -28,10 +56,7 @@ pub async fn request(
         None => builder.body(Body::empty()),
     }
     .unwrap();
-    let response = app.oneshot(request).await.unwrap();
-    let status = response.status();
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    (status, String::from_utf8_lossy(&body).into_owned())
+    router(state.clone()).oneshot(request).await.unwrap()
 }
 
 /// Like [`request`], but parses the body as JSON.

@@ -1,5 +1,6 @@
 mod assets;
 mod completions;
+mod events;
 mod executors;
 mod projects;
 mod tasks;
@@ -15,16 +16,19 @@ use axum::{Json, Router};
 use jiff::tz::TimeZone;
 use sqlx::SqlitePool;
 
+pub use events::Events;
 use types::ErrorBody;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: SqlitePool,
     pub family_tz: TimeZone,
+    pub events: Events,
 }
 
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
+        .route("/events", get(events::stream))
         .route("/projects/{id}", get(projects::get))
         .route("/projects/{id}/tasks", post(tasks::create))
         .route("/tasks/{id}", put(tasks::update).delete(tasks::archive))

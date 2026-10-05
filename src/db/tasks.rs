@@ -70,47 +70,55 @@ pub async fn create(
     }))
 }
 
-/// Returns `None` if there is no such task or it is archived.
+/// Returns the task and the project it belongs to, or `None` if there is no such
+/// task or it is archived.
 pub async fn update(
     pool: &SqlitePool,
     id: TaskId,
     fields: &TaskFields,
-) -> anyhow::Result<Option<Task>> {
+) -> anyhow::Result<Option<(ProjectId, Task)>> {
     let amount = i64::from(fields.cadence.amount);
     let unit = unit_to_str(fields.cadence.unit);
-    let updated = sqlx::query!(
+    let project_id = sqlx::query_scalar!(
         "UPDATE tasks SET name = ?, cadence_amount = ?, cadence_unit = ?, priority = ?
-         WHERE id = ? AND archived_at IS NULL",
+         WHERE id = ? AND archived_at IS NULL
+         RETURNING project_id",
         fields.name,
         amount,
         unit,
         fields.priority,
         id
     )
-    .execute(pool)
-    .await?
-    .rows_affected();
-    Ok((updated > 0).then(|| Task {
-        id,
-        name: fields.name.clone(),
-        cadence: fields.cadence,
-        priority: fields.priority,
+    .fetch_optional(pool)
+    .await?;
+    Ok(project_id.map(|project_id| {
+        let task = Task {
+            id,
+            name: fields.name.clone(),
+            cadence: fields.cadence,
+            priority: fields.priority,
+        };
+        (project_id, task)
     }))
 }
 
-/// Soft-deletes a task so its completion history survives. Returns `false` if there
-/// is no such task or it is already archived.
-pub async fn archive(pool: &SqlitePool, id: TaskId, now: Timestamp) -> anyhow::Result<bool> {
+/// Soft-deletes a task so its completion history survives. Returns the project the
+/// task belongs to, or `None` if there is no such task or it is already archived.
+pub async fn archive(
+    pool: &SqlitePool,
+    id: TaskId,
+    now: Timestamp,
+) -> anyhow::Result<Option<ProjectId>> {
     let archived_at = to_millis(now);
-    let updated = sqlx::query!(
-        "UPDATE tasks SET archived_at = ? WHERE id = ? AND archived_at IS NULL",
+    let project_id = sqlx::query_scalar!(
+        "UPDATE tasks SET archived_at = ? WHERE id = ? AND archived_at IS NULL
+         RETURNING project_id",
         archived_at,
         id
     )
-    .execute(pool)
-    .await?
-    .rows_affected();
-    Ok(updated > 0)
+    .fetch_optional(pool)
+    .await?;
+    Ok(project_id)
 }
 
 fn task(id: TaskId, name: String, amount: i64, unit: &str, priority: i64) -> anyhow::Result<Task> {

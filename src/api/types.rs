@@ -107,6 +107,16 @@ pub struct CompletionInput {
     pub completed_at: i64,
 }
 
+/// Sent on `GET /api/events` (as SSE `data`). Events carry no payload: clients refetch.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
+pub enum Event {
+    /// `project` is `null` when global data (executors) changed or events were
+    /// missed; refetch everything then.
+    Changed { project: Option<i64> },
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ErrorBody {

@@ -37,8 +37,16 @@ pub async fn put(
     };
 
     let status = match db::completions::upsert(&state.pool, &completion).await? {
-        Upsert::Created => StatusCode::CREATED,
-        Upsert::Updated | Upsert::Unchanged => StatusCode::OK,
+        Upsert::Created(project_id) => {
+            state.events.changed(Some(project_id));
+            StatusCode::CREATED
+        }
+        Upsert::Updated(project_id) => {
+            state.events.changed(Some(project_id));
+            StatusCode::OK
+        }
+        // A retry: other clients already saw the original write.
+        Upsert::Unchanged => StatusCode::OK,
         Upsert::UnknownTask => {
             return Err(ApiError::Invalid(format!(
                 "task {} does not exist or is archived",
@@ -61,7 +69,9 @@ pub async fn delete(
     Path(id): Path<String>,
 ) -> ApiResult<StatusCode> {
     let id = parse_id(&id)?;
-    db::completions::delete(&state.pool, id).await?;
+    if let Some(project_id) = db::completions::delete(&state.pool, id).await? {
+        state.events.changed(Some(project_id));
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
