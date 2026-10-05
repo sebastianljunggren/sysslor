@@ -147,6 +147,11 @@ mod tests {
         let (status, _) = request_with(&state, "DELETE", &task_uri, None).await;
         assert_eq!(status, StatusCode::NO_CONTENT);
         assert_eq!(drain(&mut events), [changed(Some(1))]);
+
+        let project_input = json!({ "name": "Home" });
+        let (status, _) = request_with(&state, "PUT", "/api/projects/1", Some(project_input)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(drain(&mut events), [changed(Some(1))]);
     }
 
     #[sqlx::test]
@@ -172,6 +177,14 @@ mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let (status, _) = request_with(
+            &state,
+            "PUT",
+            "/api/projects/99",
+            Some(json!({ "name": "X" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(drain(&mut events), []);
     }
 

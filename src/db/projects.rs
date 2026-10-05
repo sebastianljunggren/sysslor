@@ -14,3 +14,19 @@ pub async fn get(pool: &SqlitePool, id: ProjectId) -> anyhow::Result<Option<Proj
         .await?;
     Ok(project)
 }
+
+/// Returns `None` if there is no such project.
+pub async fn rename(
+    pool: &SqlitePool,
+    id: ProjectId,
+    name: &str,
+) -> anyhow::Result<Option<Project>> {
+    let updated = sqlx::query!("UPDATE projects SET name = ? WHERE id = ?", name, id)
+        .execute(pool)
+        .await?
+        .rows_affected();
+    Ok((updated > 0).then(|| Project {
+        id,
+        name: name.to_owned(),
+    }))
+}

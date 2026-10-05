@@ -3,7 +3,14 @@
   import type { ProjectView } from '../lib/api/ProjectView';
   import type { TaskInput } from '../lib/api/TaskInput';
   import type { TaskView } from '../lib/api/TaskView';
-  import { archiveTask, createExecutor, createTask, renameExecutor, updateTask } from '../lib/client';
+  import {
+    archiveTask,
+    createExecutor,
+    createTask,
+    renameExecutor,
+    renameProject,
+    updateTask,
+  } from '../lib/client';
   import { logOut, mutate } from '../lib/data.svelte';
   import { formatCadence } from '../lib/format';
   import { m } from '../lib/paraglide/messages.js';
@@ -15,6 +22,8 @@
   // Each language in its own name, so it can be found whatever the current locale is.
   const languageNames: Record<Locale, string> = { en: 'English', sv: 'Svenska' };
 
+  // Absent means unchanged, so a rename from another device shows up.
+  let projectDraft = $state<string | undefined>();
   let editingTask = $state<number | null>(null);
   let newExecutor = $state('');
   // Rename drafts by executor id; absent means unchanged.
@@ -22,6 +31,13 @@
 
   // Alphabetical, so the list doesn't jump around while tasks are edited.
   const tasks = $derived(view.tasks.toSorted((a, b) => a.name.localeCompare(b.name, getLocale())));
+
+  async function saveProjectName(event: SubmitEvent) {
+    event.preventDefault();
+    const name = projectDraft;
+    if (name === undefined) return;
+    if (await mutate(() => renameProject(view.project.id, { name }))) projectDraft = undefined;
+  }
 
   async function addTask(input: TaskInput) {
     return (await mutate(() => createTask(view.project.id, input))) !== undefined;
@@ -50,6 +66,24 @@
     if (await mutate(() => renameExecutor(executor.id, { name }))) delete drafts[executor.id];
   }
 </script>
+
+<section>
+  <h2>{m.project_name()}</h2>
+  <form class="row" onsubmit={saveProjectName}>
+    <input
+      class="grow"
+      aria-label={m.project_name()}
+      value={projectDraft ?? view.project.name}
+      oninput={(e) => (projectDraft = e.currentTarget.value)}
+      required
+      maxlength="200"
+    />
+    {#if projectDraft !== undefined && projectDraft !== view.project.name}
+      <button type="submit" class="primary">{m.save()}</button>
+      <button type="button" onclick={() => (projectDraft = undefined)}>{m.cancel()}</button>
+    {/if}
+  </form>
+</section>
 
 <section>
   <h2>{m.chores()}</h2>

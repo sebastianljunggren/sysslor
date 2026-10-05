@@ -42,7 +42,7 @@ impl FromRef<AppState> for Key {
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/events", get(events::stream))
-        .route("/projects/{id}", get(projects::get))
+        .route("/projects/{id}", get(projects::get).put(projects::rename))
         .route("/projects/{id}/tasks", post(tasks::create))
         .route("/tasks/{id}", put(tasks::update).delete(tasks::archive))
         .route("/executors", get(executors::list).post(executors::create))

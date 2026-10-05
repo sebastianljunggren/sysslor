@@ -28,6 +28,13 @@ pub struct Project {
     pub name: String,
 }
 
+/// Body for renaming a project.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct ProjectInput {
+    pub name: String,
+}
+
 /// A project with its tasks, sorted so the ones needing attention come first.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]

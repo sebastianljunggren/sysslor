@@ -4,8 +4,8 @@ use axum::Json;
 use axum::extract::{Path, State};
 use jiff::Timestamp;
 
-use super::types::{ProjectView, TaskView};
-use super::{ApiError, ApiResult, AppState};
+use super::types::{Project, ProjectInput, ProjectView, TaskView};
+use super::{ApiError, ApiResult, AppState, validate_name};
 use crate::db;
 use crate::db::projects::ProjectId;
 use crate::domain::sort_tasks;
@@ -37,12 +37,27 @@ pub async fn get(
     }))
 }
 
+pub async fn rename(
+    State(state): State<AppState>,
+    Path(id): Path<ProjectId>,
+    Json(input): Json<ProjectInput>,
+) -> ApiResult<Json<Project>> {
+    let name = validate_name(&input.name)?;
+    let Some(project) = db::projects::rename(&state.pool, id, &name).await? else {
+        return Err(ApiError::NotFound("no such project"));
+    };
+    state.events.changed(Some(id));
+    Ok(Json(project.into()))
+}
+
 #[cfg(test)]
 mod tests {
     use axum::http::StatusCode;
+    use serde_json::json;
     use sqlx::SqlitePool;
 
     use crate::api::test_util::*;
+    use crate::api::types::Project;
 
     #[sqlx::test]
     async fn unknown_project_is_not_found(pool: SqlitePool) {
@@ -133,5 +148,37 @@ mod tests {
         let view = default_project(&pool).await;
         let ids: Vec<_> = view.tasks.iter().map(|t| t.task.id).collect();
         assert_eq!(ids, [kept]);
+    }
+
+    #[sqlx::test]
+    async fn rename(pool: SqlitePool) {
+        let (status, project): (_, Project) = json(
+            &pool,
+            "PUT",
+            "/api/projects/1",
+            Some(json!({ "name": " Home " })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(project.name, "Home");
+        assert_eq!(default_project(&pool).await.project.name, "Home");
+
+        let (status, _) = request(
+            &pool,
+            "PUT",
+            "/api/projects/99",
+            Some(json!({ "name": "X" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+
+        let (status, _) = request(
+            &pool,
+            "PUT",
+            "/api/projects/1",
+            Some(json!({ "name": " " })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     }
 }

@@ -27,6 +27,7 @@
   "done_at": "Utförd",
   "change_time": "Ändra tid",
 
+  "project_name": "Listans namn",
   "chores": "Sysslor",
   "new_chore": "Ny syssla",
   "people": "Personer",

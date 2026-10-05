@@ -5,6 +5,8 @@ import type { Event } from './api/Event';
 import type { Executor } from './api/Executor';
 import type { ExecutorInput } from './api/ExecutorInput';
 import type { LoginInput } from './api/LoginInput';
+import type { Project } from './api/Project';
+import type { ProjectInput } from './api/ProjectInput';
 import type { ProjectView } from './api/ProjectView';
 import type { Task } from './api/Task';
 import type { TaskInput } from './api/TaskInput';
@@ -51,6 +53,8 @@ export const login = (input: LoginInput) => request<void>('POST', '/login', inpu
 export const logout = () => request<void>('POST', '/logout');
 
 export const getProject = (id: number) => request<ProjectView>('GET', `/projects/${id}`);
+export const renameProject = (id: number, input: ProjectInput) =>
+  request<Project>('PUT', `/projects/${id}`, input);
 
 export const createTask = (projectId: number, input: TaskInput) =>
   request<Task>('POST', `/projects/${projectId}/tasks`, input);
