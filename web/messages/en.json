@@ -1,0 +1,93 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "edit": "Edit",
+  "done": "Done",
+  "save": "Save",
+  "add": "Add",
+  "cancel": "Cancel",
+  "undo": "Undo",
+  "dismiss": "Dismiss",
+  "loading": "Loading…",
+  "no_connection": "No connection to the server.",
+  "retrying": "Retrying…",
+  "server_unreachable": "Could not reach the server.",
+
+  "password": "Password",
+  "log_in": "Log in",
+  "log_out": "Log out",
+  "wrong_password": "Wrong password.",
+
+  "who_is_doing_it": "Who is doing it?",
+  "no_people": "No people yet.",
+  "add_people": "Add people",
+  "no_chores": "No chores yet.",
+  "add_chores": "Add chores",
+  "task_done": "{name} done",
+  "mark_done": "Mark {name} as done",
+  "done_at": "Done at",
+  "change_time": "Change time",
+
+  "chores": "Chores",
+  "new_chore": "New chore",
+  "people": "People",
+  "name": "Name",
+  "this_device": "This device",
+  "language": "Language",
+  "confirm_remove_task": "Remove “{name}”? Its history is kept.",
+  "remove": "Remove",
+
+  "every": "Every",
+  "priority": "Priority",
+  "priority_value": "Priority {priority}",
+  "priority_none": "None",
+  "priority_highest": "{priority} (highest)",
+  "unit_days": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "day", "countPlural=*": "days" }
+    }
+  ],
+  "unit_weeks": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "week", "countPlural=*": "weeks" }
+    }
+  ],
+  "cadence_days": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "Every day", "countPlural=*": "Every {count} days" }
+    }
+  ],
+  "cadence_weeks": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "Every week", "countPlural=*": "Every {count} weeks" }
+    }
+  ],
+
+  "never_done": "Never done",
+  "due_today": "Today",
+  "due_tomorrow": "Tomorrow",
+  "due_in_days": [
+    {
+      "declarations": ["input days", "local daysPlural = days: plural"],
+      "selectors": ["daysPlural"],
+      "match": { "daysPlural=one": "In {days} day", "daysPlural=*": "In {days} days" }
+    }
+  ],
+  "overdue_days": [
+    {
+      "declarations": ["input days", "local daysPlural = days: plural"],
+      "selectors": ["daysPlural"],
+      "match": { "daysPlural=one": "Overdue {days} day", "daysPlural=*": "Overdue {days} days" }
+    }
+  ],
+  "instant_today": "today {time}",
+  "instant_yesterday": "yesterday {time}",
+  "instant_date": "{date} {time}"
+}

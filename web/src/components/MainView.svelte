@@ -5,6 +5,7 @@
   import type { TaskView } from '../lib/api/TaskView';
   import { deleteCompletion, putCompletion, uuidv7 } from '../lib/client';
   import { data, mutate, pickExecutor } from '../lib/data.svelte';
+  import { m } from '../lib/paraglide/messages.js';
   import TaskItem from './TaskItem.svelte';
 
   let { view, executors }: { view: ProjectView; executors: Executor[] } = $props();
@@ -51,10 +52,10 @@
 </script>
 
 {#if executors.length === 0}
-  <p class="muted">Add the people who do the chores under <a href="#edit">Edit</a>.</p>
+  <p class="muted">{m.no_people()} <a href="#edit">{m.add_people()}</a></p>
 {:else}
   <fieldset class="executors">
-    <legend>Who is doing it?</legend>
+    <legend>{m.who_is_doing_it()}</legend>
     {#each executors as candidate (candidate.id)}
       <label class:selected={candidate.id === executor?.id}>
         <input
@@ -70,7 +71,7 @@
 {/if}
 
 {#if view.tasks.length === 0}
-  <p class="muted">No chores yet. Add some under <a href="#edit">Edit</a>.</p>
+  <p class="muted">{m.no_chores()} <a href="#edit">{m.add_chores()}</a></p>
 {:else}
   <ul>
     {#each view.tasks as task (task.id)}
@@ -83,8 +84,8 @@
 
 {#if undo}
   <div class="toast" role="status">
-    <span>{undo.taskName} done</span>
-    <button class="link" onclick={undoLatest}>Undo</button>
+    <span>{m.task_done({ name: undo.taskName })}</span>
+    <button class="link" onclick={undoLatest}>{m.undo()}</button>
   </div>
 {/if}
 

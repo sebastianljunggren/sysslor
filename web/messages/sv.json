@@ -1,0 +1,103 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "edit": "Redigera",
+  "done": "Klar",
+  "save": "Spara",
+  "add": "Lägg till",
+  "cancel": "Avbryt",
+  "undo": "Ångra",
+  "dismiss": "Stäng",
+  "loading": "Laddar…",
+  "no_connection": "Ingen anslutning till servern.",
+  "retrying": "Försöker igen…",
+  "server_unreachable": "Kunde inte nå servern.",
+
+  "password": "Lösenord",
+  "log_in": "Logga in",
+  "log_out": "Logga ut",
+  "wrong_password": "Fel lösenord.",
+
+  "who_is_doing_it": "Vem gör det?",
+  "no_people": "Inga personer än.",
+  "add_people": "Lägg till personer",
+  "no_chores": "Inga sysslor än.",
+  "add_chores": "Lägg till sysslor",
+  "task_done": "{name} klar",
+  "mark_done": "Markera {name} som klar",
+  "done_at": "Utförd",
+  "change_time": "Ändra tid",
+
+  "chores": "Sysslor",
+  "new_chore": "Ny syssla",
+  "people": "Personer",
+  "name": "Namn",
+  "this_device": "Den här enheten",
+  "language": "Språk",
+  "confirm_remove_task": "Ta bort ”{name}”? Historiken sparas.",
+  "remove": "Ta bort",
+
+  "every": "Intervall",
+  "priority": "Prioritet",
+  "priority_value": "Prioritet {priority}",
+  "priority_none": "Ingen",
+  "priority_highest": "{priority} (högst)",
+  "unit_days": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "dag", "countPlural=*": "dagar" }
+    }
+  ],
+  "unit_weeks": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "vecka", "countPlural=*": "veckor" }
+    }
+  ],
+  "cadence_days": [
+    {
+      "declarations": ["input count", "local countOrdinal = count: plural type=ordinal"],
+      "selectors": ["count", "countOrdinal"],
+      "match": {
+        "count=1, countOrdinal=*": "Varje dag",
+        "count=2, countOrdinal=*": "Varannan dag",
+        "count=*, countOrdinal=one": "Var {count}:a dag",
+        "count=*, countOrdinal=*": "Var {count}:e dag"
+      }
+    }
+  ],
+  "cadence_weeks": [
+    {
+      "declarations": ["input count", "local countOrdinal = count: plural type=ordinal"],
+      "selectors": ["count", "countOrdinal"],
+      "match": {
+        "count=1, countOrdinal=*": "Varje vecka",
+        "count=2, countOrdinal=*": "Varannan vecka",
+        "count=*, countOrdinal=one": "Var {count}:a vecka",
+        "count=*, countOrdinal=*": "Var {count}:e vecka"
+      }
+    }
+  ],
+
+  "never_done": "Aldrig gjord",
+  "due_today": "Idag",
+  "due_tomorrow": "Imorgon",
+  "due_in_days": [
+    {
+      "declarations": ["input days", "local daysPlural = days: plural"],
+      "selectors": ["daysPlural"],
+      "match": { "daysPlural=one": "Om {days} dag", "daysPlural=*": "Om {days} dagar" }
+    }
+  ],
+  "overdue_days": [
+    {
+      "declarations": ["input days", "local daysPlural = days: plural"],
+      "selectors": ["daysPlural"],
+      "match": { "daysPlural=one": "Försenad {days} dag", "daysPlural=*": "Försenad {days} dagar" }
+    }
+  ],
+  "instant_today": "idag {time}",
+  "instant_yesterday": "igår {time}",
+  "instant_date": "{date} {time}"
+}

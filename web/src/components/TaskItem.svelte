@@ -4,6 +4,7 @@
   import { deleteCompletion, putCompletion } from '../lib/client';
   import { mutate } from '../lib/data.svelte';
   import { formatCadence, formatDue, formatInstant, localDateTime } from '../lib/format';
+  import { m } from '../lib/paraglide/messages.js';
 
   let {
     task,
@@ -66,7 +67,7 @@
       <span class="name">
         {task.name}
         {#if task.priority > 0}
-          <span class="priority" title="Priority {task.priority}">{'!'.repeat(task.priority)}</span>
+          <span class="priority" title={m.priority_value({ priority: task.priority })}>{'!'.repeat(task.priority)}</span>
         {/if}
       </span>
       <span class="meta">
@@ -79,7 +80,7 @@
     </button>
     <button
       class="complete"
-      aria-label="Mark {task.name} as done"
+      aria-label={m.mark_done({ name: task.name })}
       disabled={!canComplete || busy}
       onclick={() => run(oncomplete)}>✓</button
     >
@@ -88,11 +89,11 @@
   {#if expanded && last}
     <form class="details" onsubmit={(e) => run(() => backdate(e))}>
       <label>
-        Done at
+        {m.done_at()}
         <input type="datetime-local" bind:value={backdateTo} max={localDateTime(Date.now())} required />
       </label>
-      <button type="submit" disabled={busy}>Change time</button>
-      <button type="button" class="danger" disabled={busy} onclick={() => run(undo)}>Undo</button>
+      <button type="submit" disabled={busy}>{m.change_time()}</button>
+      <button type="button" class="danger" disabled={busy} onclick={() => run(undo)}>{m.undo()}</button>
     </form>
   {/if}
 </article>

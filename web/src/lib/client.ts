@@ -8,6 +8,7 @@ import type { LoginInput } from './api/LoginInput';
 import type { ProjectView } from './api/ProjectView';
 import type { Task } from './api/Task';
 import type { TaskInput } from './api/TaskInput';
+import { m } from './paraglide/messages.js';
 
 // Only one project exists until multiple projects are supported.
 export const DEFAULT_PROJECT = 1;
@@ -34,7 +35,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError('Could not reach the server.', null);
+    throw new ApiError(m.server_unreachable(), null);
   }
   if (!response.ok) {
     const error = await response

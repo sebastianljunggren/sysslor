@@ -1,5 +1,6 @@
 <script lang="ts">
   import { logIn } from '../lib/data.svelte';
+  import { m } from '../lib/paraglide/messages.js';
 
   let password = $state('');
   let error = $state<string | null>(null);
@@ -18,7 +19,7 @@
   <!-- Lets password managers tell this login apart from others on the same host. -->
   <input type="text" name="username" autocomplete="username" value="sysslor" hidden />
   <label>
-    Password
+    {m.password()}
     <!-- svelte-ignore a11y_autofocus -->
     <input
       type="password"
@@ -29,7 +30,7 @@
       autofocus
     />
   </label>
-  <button type="submit" class="primary" disabled={pending}>Log in</button>
+  <button type="submit" class="primary" disabled={pending}>{m.log_in()}</button>
   {#if error}
     <p class="error" role="alert">{error}</p>
   {/if}

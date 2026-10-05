@@ -1,4 +1,6 @@
 import type { Cadence } from './api/Cadence';
+import { m } from './paraglide/messages.js';
+import { getLocale } from './paraglide/runtime.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -20,8 +22,7 @@ function daysBetween(from: string, to: string): number {
 }
 
 export function formatCadence({ amount, unit }: Cadence): string {
-  const noun = unit === 'days' ? 'day' : 'week';
-  return amount === 1 ? `Every ${noun}` : `Every ${amount} ${noun}s`;
+  return unit === 'days' ? m.cadence_days({ count: amount }) : m.cadence_weeks({ count: amount });
 }
 
 /**
@@ -29,21 +30,24 @@ export function formatCadence({ amount, unit }: Cadence): string {
  * local date assumes the device is in that zone, which holds for a family app.
  */
 export function formatDue(due: string | null, now = new Date()): string {
-  if (due === null) return 'Never done';
+  if (due === null) return m.never_done();
   const days = daysBetween(localDate(now), due);
-  if (days < 0) return `Overdue ${-days} ${days === -1 ? 'day' : 'days'}`;
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Tomorrow';
-  return `In ${days} days`;
+  if (days < 0) return m.overdue_days({ days: -days });
+  if (days === 0) return m.due_today();
+  if (days === 1) return m.due_tomorrow();
+  return m.due_in_days({ days });
 }
 
-const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
-const dateFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+// Changing the locale reloads the page, so formatters for the current one can be cached.
+const timeFormat = new Intl.DateTimeFormat(getLocale(), { hour: 'numeric', minute: '2-digit' });
+const dateFormat = new Intl.DateTimeFormat(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
 
-/** "today 6:30 PM", "yesterday 7:15 AM", "Sat, Oct 3 12:00 PM" */
+/** "today 6:30 PM", "yesterday 7:15 AM", "Sat, Oct 3 12:00 PM" (in English) */
 export function formatInstant(ms: number, now = new Date()): string {
   const date = new Date(ms);
   const days = daysBetween(localDate(date), localDate(now));
-  const day = days === 0 ? 'today' : days === 1 ? 'yesterday' : dateFormat.format(date);
-  return `${day} ${timeFormat.format(date)}`;
+  const time = timeFormat.format(date);
+  if (days === 0) return m.instant_today({ time });
+  if (days === 1) return m.instant_yesterday({ time });
+  return m.instant_date({ date: dateFormat.format(date), time });
 }

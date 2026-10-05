@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CadenceUnit } from '../lib/api/CadenceUnit';
   import type { TaskInput } from '../lib/api/TaskInput';
+  import { m } from '../lib/paraglide/messages.js';
 
   let {
     initial = { name: '', cadence: { amount: 7, unit: 'days' }, priority: 0 },
@@ -43,31 +44,31 @@
 
 <form onsubmit={submit}>
   <label class="name">
-    Name
+    {m.name()}
     <input bind:value={name} required maxlength="200" />
   </label>
   <label>
-    Every
+    {m.every()}
     <span class="cadence">
       <input type="number" bind:value={amount} min="1" max="999" required />
       <select bind:value={unit}>
-        <option value="days">{amount === 1 ? 'day' : 'days'}</option>
-        <option value="weeks">{amount === 1 ? 'week' : 'weeks'}</option>
+        <option value="days">{m.unit_days({ count: amount })}</option>
+        <option value="weeks">{m.unit_weeks({ count: amount })}</option>
       </select>
     </span>
   </label>
   <label>
-    Priority
+    {m.priority()}
     <select bind:value={priority}>
       {#each [0, 1, 2, 3, 4, 5] as p (p)}
-        <option value={p}>{p === 0 ? 'None' : p === 5 ? '5 (highest)' : p}</option>
+        <option value={p}>{p === 0 ? m.priority_none() : p === 5 ? m.priority_highest({ priority: p }) : p}</option>
       {/each}
     </select>
   </label>
   <div class="actions">
     <button type="submit" class="primary" disabled={busy}>{submitLabel}</button>
     {#if oncancel}
-      <button type="button" onclick={oncancel}>Cancel</button>
+      <button type="button" onclick={oncancel}>{m.cancel()}</button>
     {/if}
   </div>
 </form>

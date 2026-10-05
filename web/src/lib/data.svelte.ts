@@ -9,6 +9,7 @@ import {
   logout,
   subscribe,
 } from './client';
+import { m } from './paraglide/messages.js';
 
 const EXECUTOR_KEY = 'sysslor.executor';
 
@@ -90,7 +91,7 @@ export async function logIn(password: string): Promise<string | null> {
   try {
     await login({ password });
   } catch (error) {
-    return isUnauthorized(error) ? 'Wrong password.' : message(error);
+    return isUnauthorized(error) ? m.wrong_password() : message(error);
   }
   data.loadError = null;
   data.actionError = null;

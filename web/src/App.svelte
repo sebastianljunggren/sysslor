@@ -3,6 +3,7 @@
   import LoginView from './components/LoginView.svelte';
   import MainView from './components/MainView.svelte';
   import { connect, data, refreshAll } from './lib/data.svelte';
+  import { m } from './lib/paraglide/messages.js';
 
   // The hash keeps the edit view reachable with the back button without a router.
   let hash = $state(location.hash);
@@ -26,9 +27,9 @@
     <h1>{data.view?.project.name ?? 'Sysslor'}</h1>
     {#if data.loggedIn}
       {#if hash === '#edit'}
-        <a class="button" href="#/">Done</a>
+        <a class="button" href="#/">{m.done()}</a>
       {:else}
-        <a class="button" href="#edit">Edit</a>
+        <a class="button" href="#edit">{m.edit()}</a>
       {/if}
     {/if}
   </header>
@@ -38,20 +39,20 @@
   {:else}
     {#if !data.connected || data.loadError}
       <p class="banner" role="status">
-        {data.loadError ?? 'No connection to the server.'} Retrying…
+        {data.loadError ?? m.no_connection()} {m.retrying()}
       </p>
     {/if}
 
     {#if data.actionError}
       <p class="banner error" role="alert">
         {data.actionError}
-        <button class="link" onclick={() => (data.actionError = null)}>Dismiss</button>
+        <button class="link" onclick={() => (data.actionError = null)}>{m.dismiss()}</button>
       </p>
     {/if}
 
     {#if data.view === null}
       {#if !data.loadError}
-        <p class="muted">Loading…</p>
+        <p class="muted">{m.loading()}</p>
       {/if}
     {:else if hash === '#edit'}
       <EditView view={data.view} executors={data.executors} />

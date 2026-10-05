@@ -6,9 +6,14 @@
   import { archiveTask, createExecutor, createTask, renameExecutor, updateTask } from '../lib/client';
   import { logOut, mutate } from '../lib/data.svelte';
   import { formatCadence } from '../lib/format';
+  import { m } from '../lib/paraglide/messages.js';
+  import { getLocale, locales, setLocale, type Locale } from '../lib/paraglide/runtime.js';
   import TaskForm from './TaskForm.svelte';
 
   let { view, executors }: { view: ProjectView; executors: Executor[] } = $props();
+
+  // Each language in its own name, so it can be found whatever the current locale is.
+  const languageNames: Record<Locale, string> = { en: 'English', sv: 'Svenska' };
 
   let editingTask = $state<number | null>(null);
   let newExecutor = $state('');
@@ -16,7 +21,7 @@
   let drafts = $state<Record<number, string>>({});
 
   // Alphabetical, so the list doesn't jump around while tasks are edited.
-  const tasks = $derived(view.tasks.toSorted((a, b) => a.name.localeCompare(b.name, 'en-US')));
+  const tasks = $derived(view.tasks.toSorted((a, b) => a.name.localeCompare(b.name, getLocale())));
 
   async function addTask(input: TaskInput) {
     return (await mutate(() => createTask(view.project.id, input))) !== undefined;
@@ -29,7 +34,7 @@
   }
 
   async function archive(task: TaskView) {
-    if (!confirm(`Remove "${task.name}"? Its history is kept.`)) return;
+    if (!confirm(m.confirm_remove_task({ name: task.name }))) return;
     await mutate(() => archiveTask(task.id));
   }
 
@@ -47,14 +52,14 @@
 </script>
 
 <section>
-  <h2>Chores</h2>
+  <h2>{m.chores()}</h2>
   <ul>
     {#each tasks as task (task.id)}
       <li>
         {#if editingTask === task.id}
           <TaskForm
             initial={{ name: task.name, cadence: task.cadence, priority: task.priority }}
-            submitLabel="Save"
+            submitLabel={m.save()}
             onsubmit={(input) => saveTask(task.id, input)}
             oncancel={() => (editingTask = null)}
           />
@@ -63,51 +68,62 @@
             <span class="grow">
               <strong>{task.name}</strong>
               <span class="muted">
-                · {formatCadence(task.cadence)}{task.priority > 0 ? ` · priority ${task.priority}` : ''}
+                · {formatCadence(task.cadence)}{task.priority > 0 ? ` · ${m.priority_value({ priority: task.priority })}` : ''}
               </span>
             </span>
-            <button onclick={() => (editingTask = task.id)}>Edit</button>
-            <button class="danger" onclick={() => archive(task)}>Remove</button>
+            <button onclick={() => (editingTask = task.id)}>{m.edit()}</button>
+            <button class="danger" onclick={() => archive(task)}>{m.remove()}</button>
           </div>
         {/if}
       </li>
     {/each}
   </ul>
-  <h3>New chore</h3>
-  <TaskForm submitLabel="Add" onsubmit={addTask} />
+  <h3>{m.new_chore()}</h3>
+  <TaskForm submitLabel={m.add()} onsubmit={addTask} />
 </section>
 
 <section>
-  <h2>People</h2>
+  <h2>{m.people()}</h2>
   <ul>
     {#each executors as executor (executor.id)}
       <li>
         <form class="row" onsubmit={(e) => rename(e, executor)}>
           <input
             class="grow"
-            aria-label="Name"
+            aria-label={m.name()}
             value={drafts[executor.id] ?? executor.name}
             oninput={(e) => (drafts[executor.id] = e.currentTarget.value)}
             required
             maxlength="200"
           />
           {#if drafts[executor.id] !== undefined && drafts[executor.id] !== executor.name}
-            <button type="submit" class="primary">Save</button>
-            <button type="button" onclick={() => delete drafts[executor.id]}>Cancel</button>
+            <button type="submit" class="primary">{m.save()}</button>
+            <button type="button" onclick={() => delete drafts[executor.id]}>{m.cancel()}</button>
           {/if}
         </form>
       </li>
     {/each}
   </ul>
   <form class="row" onsubmit={addExecutor}>
-    <input class="grow" bind:value={newExecutor} placeholder="Name" required maxlength="200" />
-    <button type="submit" class="primary">Add</button>
+    <input class="grow" bind:value={newExecutor} placeholder={m.name()} required maxlength="200" />
+    <button type="submit" class="primary">{m.add()}</button>
   </form>
 </section>
 
 <section>
-  <h2>This device</h2>
-  <button onclick={logOut}>Log out</button>
+  <h2>{m.this_device()}</h2>
+  <div class="row">
+    <label class="row">
+      {m.language()}
+      <!-- Reloads the page, so nothing needs to react to the change. -->
+      <select value={getLocale()} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+        {#each locales as locale (locale)}
+          <option value={locale}>{languageNames[locale]}</option>
+        {/each}
+      </select>
+    </label>
+    <button onclick={logOut}>{m.log_out()}</button>
+  </div>
 </section>
 
 <style>
