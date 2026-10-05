@@ -66,7 +66,7 @@ export const archiveTask = (id: number) => request<void>('DELETE', `/tasks/${id}
 
 export const createGroup = (projectId: number, input: GroupInput) =>
   request<Group>('POST', `/projects/${projectId}/groups`, input);
-export const renameGroup = (id: number, input: GroupInput) =>
+export const updateGroup = (id: number, input: GroupInput) =>
   request<Group>('PUT', `/groups/${id}`, input);
 export const deleteGroup = (id: number) => request<void>('DELETE', `/groups/${id}`);
 

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO task_groups (project_id, name)\n         SELECT id, ? FROM projects WHERE id = ?\n         RETURNING id AS \"id!\"",
+  "query": "INSERT INTO task_groups (project_id, name, color)\n         SELECT id, ?, ? FROM projects WHERE id = ?\n         RETURNING id AS \"id!\"",
   "describe": {
     "columns": [
       {
@@ -16,11 +16,11 @@
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 3
     },
     "nullable": [
       null
     ]
   },
-  "hash": "90c273ee3f1be240f6dfbaf3b831cb7854ba9dea6b711677aed74b5068d80d11"
+  "hash": "aeca8723979a9f1c1e466d2ec5a0c905aea9370ceeddd7f2e09cd364f06500f0"
 }

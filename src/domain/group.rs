@@ -2,11 +2,25 @@ use super::Collator;
 
 pub type GroupId = i64;
 
+/// An accent from the Solarized palette, used to tell groups apart at a glance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupColor {
+    Yellow,
+    Orange,
+    Red,
+    Magenta,
+    Violet,
+    Blue,
+    Cyan,
+    Green,
+}
+
 /// A named set of tasks within a project, such as a room in a home.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Group {
     pub id: GroupId,
     pub name: String,
+    pub color: Option<GroupColor>,
 }
 
 /// Sorts groups alphabetically for the collator's locale. Ties (duplicate names) fall
@@ -24,6 +38,7 @@ mod tests {
         Group {
             id,
             name: name.to_owned(),
+            color: None,
         }
     }
 

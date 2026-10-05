@@ -5,7 +5,7 @@ mod group;
 mod schedule;
 
 pub use cadence::{Cadence, CadenceUnit};
-pub use group::{Group, GroupId, sort_groups};
+pub use group::{Group, GroupColor, GroupId, sort_groups};
 pub use schedule::{Schedule, ScheduledTask, Task, TaskId, sort_tasks};
 
 /// Orders names the way the configured locale expects, e.g. Swedish å, ä, ö after z.

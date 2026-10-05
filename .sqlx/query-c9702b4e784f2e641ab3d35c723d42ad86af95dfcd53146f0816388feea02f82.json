@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, name FROM task_groups WHERE project_id = ?",
+  "query": "SELECT id, name, color FROM task_groups WHERE project_id = ?",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,17 @@
             "name": "name"
           }
         }
+      },
+      {
+        "name": "color",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "task_groups",
+            "name": "color"
+          }
+        }
       }
     ],
     "parameters": {
@@ -31,8 +42,9 @@
     },
     "nullable": [
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "455c43a9f7246e730482f68407ed1bbba62859b9a258170f6e83c406f457a2f1"
+  "hash": "c9702b4e784f2e641ab3d35c723d42ad86af95dfcd53146f0816388feea02f82"
 }

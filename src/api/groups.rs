@@ -15,20 +15,22 @@ pub async fn create(
     Json(input): Json<GroupInput>,
 ) -> ApiResult<(StatusCode, Json<Group>)> {
     let name = validate_name(&input.name)?;
-    let Some(group) = db::groups::create(&state.pool, project_id, &name).await? else {
+    let color = input.color.map(Into::into);
+    let Some(group) = db::groups::create(&state.pool, project_id, &name, color).await? else {
         return Err(ApiError::NotFound("no such project"));
     };
     state.events.changed(Some(project_id));
     Ok((StatusCode::CREATED, Json(group.into())))
 }
 
-pub async fn rename(
+pub async fn update(
     State(state): State<AppState>,
     Path(id): Path<GroupId>,
     Json(input): Json<GroupInput>,
 ) -> ApiResult<Json<Group>> {
     let name = validate_name(&input.name)?;
-    let Some((project_id, group)) = db::groups::rename(&state.pool, id, &name).await? else {
+    let color = input.color.map(Into::into);
+    let Some((project_id, group)) = db::groups::update(&state.pool, id, &name, color).await? else {
         return Err(ApiError::NotFound("no such group"));
     };
     state.events.changed(Some(project_id));
@@ -57,7 +59,7 @@ mod tests {
     use sqlx::SqlitePool;
 
     use crate::api::test_util::*;
-    use crate::api::types::Group;
+    use crate::api::types::{Group, GroupColor};
 
     #[sqlx::test]
     async fn create_and_list_sorted_by_name(pool: SqlitePool) {
@@ -70,6 +72,7 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::CREATED);
         assert_eq!(group.name, "kitchen");
+        assert_eq!(group.color, None);
         let bathroom = create_group(&pool, "Bathroom").await;
 
         let view = default_project(&pool).await;
@@ -113,7 +116,8 @@ mod tests {
             group,
             Group {
                 id,
-                name: "Pantry".to_owned()
+                name: "Pantry".to_owned(),
+                color: None,
             }
         );
         assert_eq!(default_project(&pool).await.groups, [group]);
@@ -121,6 +125,60 @@ mod tests {
         let (status, _) =
             request(&pool, "PUT", "/api/groups/99", Some(json!({ "name": "X" }))).await;
         assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[sqlx::test]
+    async fn create_with_color(pool: SqlitePool) {
+        let (status, group): (_, Group) = json(
+            &pool,
+            "POST",
+            "/api/projects/1/groups",
+            Some(json!({ "name": "Kitchen", "color": "orange" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(group.color, Some(GroupColor::Orange));
+        assert_eq!(default_project(&pool).await.groups, [group]);
+    }
+
+    #[sqlx::test]
+    async fn update_sets_and_clears_color(pool: SqlitePool) {
+        let id = create_group(&pool, "Kitchen").await;
+        let uri = format!("/api/groups/{id}");
+        let (status, group): (_, Group) = json(
+            &pool,
+            "PUT",
+            &uri,
+            Some(json!({ "name": "Kitchen", "color": "cyan" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(group.color, Some(GroupColor::Cyan));
+        assert_eq!(default_project(&pool).await.groups, [group]);
+
+        let (status, group): (_, Group) = json(
+            &pool,
+            "PUT",
+            &uri,
+            Some(json!({ "name": "Kitchen", "color": null })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(group.color, None);
+        assert_eq!(default_project(&pool).await.groups, [group]);
+    }
+
+    #[sqlx::test]
+    async fn rejects_unknown_color(pool: SqlitePool) {
+        let (status, _) = request(
+            &pool,
+            "POST",
+            "/api/projects/1/groups",
+            Some(json!({ "name": "Kitchen", "color": "pink" })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(default_project(&pool).await.groups.is_empty());
     }
 
     #[sqlx::test]

@@ -45,19 +45,40 @@ pub struct ProjectView {
     pub tasks: Vec<TaskView>,
 }
 
+/// A Solarized accent, named like the palette variables in the UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum GroupColor {
+    Yellow,
+    Orange,
+    Red,
+    Magenta,
+    Violet,
+    Blue,
+    Cyan,
+    Green,
+}
+
 /// An optional grouping of tasks within a project, such as a room.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Group {
     pub id: i64,
     pub name: String,
+    /// `null` if the group has no color.
+    pub color: Option<GroupColor>,
 }
 
-/// Body for creating or renaming a group.
+/// Body for creating or updating a group. Updates replace both fields, so an omitted
+/// `color` clears it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct GroupInput {
     pub name: String,
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub color: Option<GroupColor>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -215,11 +236,42 @@ impl From<domain::Task> for Task {
     }
 }
 
+impl From<domain::GroupColor> for GroupColor {
+    fn from(color: domain::GroupColor) -> Self {
+        match color {
+            domain::GroupColor::Yellow => Self::Yellow,
+            domain::GroupColor::Orange => Self::Orange,
+            domain::GroupColor::Red => Self::Red,
+            domain::GroupColor::Magenta => Self::Magenta,
+            domain::GroupColor::Violet => Self::Violet,
+            domain::GroupColor::Blue => Self::Blue,
+            domain::GroupColor::Cyan => Self::Cyan,
+            domain::GroupColor::Green => Self::Green,
+        }
+    }
+}
+
+impl From<GroupColor> for domain::GroupColor {
+    fn from(color: GroupColor) -> Self {
+        match color {
+            GroupColor::Yellow => Self::Yellow,
+            GroupColor::Orange => Self::Orange,
+            GroupColor::Red => Self::Red,
+            GroupColor::Magenta => Self::Magenta,
+            GroupColor::Violet => Self::Violet,
+            GroupColor::Blue => Self::Blue,
+            GroupColor::Cyan => Self::Cyan,
+            GroupColor::Green => Self::Green,
+        }
+    }
+}
+
 impl From<domain::Group> for Group {
     fn from(group: domain::Group) -> Self {
         Self {
             id: group.id,
             name: group.name,
+            color: group.color.map(Into::into),
         }
     }
 }

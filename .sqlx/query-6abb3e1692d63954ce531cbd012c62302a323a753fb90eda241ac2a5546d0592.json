@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "UPDATE task_groups SET name = ? WHERE id = ? RETURNING project_id",
+  "query": "UPDATE task_groups SET name = ?, color = ? WHERE id = ? RETURNING project_id",
   "describe": {
     "columns": [
       {
@@ -16,11 +16,11 @@
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 3
     },
     "nullable": [
       false
     ]
   },
-  "hash": "14cd6bf9d26d68e625acfafc0f550612ebed8aecf29d34532a02c5c7156dde06"
+  "hash": "6abb3e1692d63954ce531cbd012c62302a323a753fb90eda241ac2a5546d0592"
 }

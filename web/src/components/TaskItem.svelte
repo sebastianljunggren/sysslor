@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Executor } from '../lib/api/Executor';
+  import type { Group } from '../lib/api/Group';
   import type { TaskView } from '../lib/api/TaskView';
   import { deleteCompletion, putCompletion } from '../lib/client';
   import { mutate } from '../lib/data.svelte';
@@ -8,14 +9,14 @@
 
   let {
     task,
-    groupName,
+    group,
     executors,
     canComplete,
     oncomplete,
   }: {
     task: TaskView;
     /** Shown as a tag; absent for ungrouped tasks or when filtering on one group. */
-    groupName?: string;
+    group?: Group;
     executors: Executor[];
     canComplete: boolean;
     oncomplete: () => Promise<void>;
@@ -72,8 +73,8 @@
         {#if task.priority > 0}
           <span class="priority" title={m.priority_value({ priority: task.priority })}>{'!'.repeat(task.priority)}</span>
         {/if}
-        {#if groupName}
-          <span class="group">{groupName}</span>
+        {#if group}
+          <span class="group" style:border-color={group.color ? `var(--${group.color})` : undefined}>{group.name}</span>
         {/if}
       </span>
       <span class="meta">

@@ -1,4 +1,5 @@
 import type { Cadence } from './api/Cadence';
+import type { GroupColor } from './api/GroupColor';
 import { m } from './paraglide/messages.js';
 import { getLocale } from './paraglide/runtime.js';
 
@@ -19,6 +20,24 @@ export function localDateTime(ms: number): string {
 
 function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
+}
+
+/** In palette order, which is also the order they are offered in. */
+export const groupColors: GroupColor[] = ['yellow', 'orange', 'red', 'magenta', 'violet', 'blue', 'cyan', 'green'];
+
+const colorLabels: Record<GroupColor, () => string> = {
+  yellow: m.color_yellow,
+  orange: m.color_orange,
+  red: m.color_red,
+  magenta: m.color_magenta,
+  violet: m.color_violet,
+  blue: m.color_blue,
+  cyan: m.color_cyan,
+  green: m.color_green,
+};
+
+export function formatColor(color: GroupColor): string {
+  return colorLabels[color]();
 }
 
 export function formatCadence({ amount, unit }: Cadence): string {

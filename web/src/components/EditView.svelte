@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Executor } from '../lib/api/Executor';
   import type { Group } from '../lib/api/Group';
+  import type { GroupColor } from '../lib/api/GroupColor';
   import type { ProjectView } from '../lib/api/ProjectView';
   import type { TaskInput } from '../lib/api/TaskInput';
   import type { TaskView } from '../lib/api/TaskView';
@@ -11,12 +12,12 @@
     createTask,
     deleteGroup,
     renameExecutor,
-    renameGroup,
     renameProject,
+    updateGroup,
     updateTask,
   } from '../lib/client';
   import { logOut, mutate } from '../lib/data.svelte';
-  import { formatCadence } from '../lib/format';
+  import { formatCadence, formatColor, groupColors } from '../lib/format';
   import { m } from '../lib/paraglide/messages.js';
   import { getLocale, locales, setLocale, type Locale } from '../lib/paraglide/runtime.js';
   import TaskForm from './TaskForm.svelte';
@@ -33,6 +34,7 @@
   // Rename drafts by executor id; absent means unchanged.
   let drafts = $state<Record<number, string>>({});
   let newGroup = $state('');
+  let newGroupColor = $state<GroupColor | null>(null);
   // Rename drafts by group id; absent means unchanged.
   let groupDrafts = $state<Record<number, string>>({});
 
@@ -51,14 +53,22 @@
 
   async function addGroup(event: SubmitEvent) {
     event.preventDefault();
-    if (await mutate(() => createGroup(view.project.id, { name: newGroup }))) newGroup = '';
+    if (await mutate(() => createGroup(view.project.id, { name: newGroup, color: newGroupColor }))) {
+      newGroup = '';
+      newGroupColor = null;
+    }
   }
 
   async function saveGroupName(event: SubmitEvent, group: Group) {
     event.preventDefault();
     const name = groupDrafts[group.id];
     if (name === undefined) return;
-    if (await mutate(() => renameGroup(group.id, { name }))) delete groupDrafts[group.id];
+    if (await mutate(() => updateGroup(group.id, { name, color: group.color }))) delete groupDrafts[group.id];
+  }
+
+  // Saved right away, keeping the stored name so a pending rename stays a draft.
+  function saveGroupColor(group: Group, color: GroupColor | null) {
+    mutate(() => updateGroup(group.id, { name: group.name, color }));
   }
 
   async function addTask(input: TaskInput) {
@@ -122,6 +132,7 @@
             required
             maxlength="200"
           />
+          {@render colorSelect(group.color, (color) => saveGroupColor(group, color))}
           {#if groupDrafts[group.id] !== undefined && groupDrafts[group.id] !== group.name}
             <button type="submit" class="primary">{m.save()}</button>
             <button type="button" onclick={() => delete groupDrafts[group.id]}>{m.cancel()}</button>
@@ -141,9 +152,19 @@
   </ul>
   <form class="row" onsubmit={addGroup}>
     <input class="grow" bind:value={newGroup} placeholder={m.name()} required maxlength="200" />
+    {@render colorSelect(newGroupColor, (color) => (newGroupColor = color))}
     <button type="submit" class="primary">{m.add()}</button>
   </form>
 </section>
+
+{#snippet colorSelect(value: GroupColor | null, onpick: (color: GroupColor | null) => void)}
+  <select aria-label={m.color()} {value} onchange={(e) => onpick((e.currentTarget.value || null) as GroupColor | null)}>
+    <option value="">{m.no_color()}</option>
+    {#each groupColors as color (color)}
+      <option value={color}>{formatColor(color)}</option>
+    {/each}
+  </select>
+{/snippet}
 
 <section>
   <h2>{m.chores()}</h2>

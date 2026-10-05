@@ -15,14 +15,14 @@
     executors.find((e) => e.id === data.executorId) ?? executors[0] ?? null,
   );
 
-  const groupNames = $derived(new Map(view.groups.map((g) => [g.id, g.name])));
+  const groupsById = $derived(new Map(view.groups.map((g) => [g.id, g])));
   const hasUngrouped = $derived(view.tasks.some((t) => t.group_id === null));
   // Falls back to all tasks if the stored group is gone, or its chip isn't shown.
   const filter = $derived.by((): GroupFilter => {
     const stored = data.groupFilter;
     if (view.groups.length === 0) return null;
     if (stored === 'none') return hasUngrouped ? 'none' : null;
-    return stored !== null && groupNames.has(stored) ? stored : null;
+    return stored !== null && groupsById.has(stored) ? stored : null;
   });
   // Filtering keeps the server's order.
   const tasks = $derived(
@@ -118,7 +118,7 @@
       <li animate:flip={{ duration: 400 }}>
         <TaskItem
           {task}
-          groupName={filter === null && task.group_id !== null ? groupNames.get(task.group_id) : undefined}
+          group={filter === null && task.group_id !== null ? groupsById.get(task.group_id) : undefined}
           {executors}
           canComplete={executor !== null}
           oncomplete={() => complete(task)}
