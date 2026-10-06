@@ -26,6 +26,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     && cp target/release/sysslor /sysslor
 
 FROM scratch
+LABEL org.opencontainers.image.source="https://github.com/sebastianljunggren/sysslor" \
+      org.opencontainers.image.licenses="MIT OR Apache-2.0"
 COPY --from=build /sysslor /sysslor
 ENV SYSSLOR_DATABASE_URL=sqlite:///data/sysslor.db \
     SYSSLOR_BIND_ADDR=0.0.0.0:8080

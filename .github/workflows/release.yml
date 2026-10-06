@@ -1,0 +1,48 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      patch: ${{ steps.release.outputs.patch }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Lives here rather than in an `on: release` workflow: a release created with
+  # GITHUB_TOKEN doesn't trigger other workflows.
+  image:
+    if: needs.release-please.outputs.release_created == 'true'
+    needs: release-please
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      ref: ${{ needs.release-please.outputs.sha }}
+      tags: |
+        ${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}.${{ needs.release-please.outputs.patch }}
+        ${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}
+        latest
