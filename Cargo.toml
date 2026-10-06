@@ -2,6 +2,9 @@
 name = "sysslor"
 version = "0.1.0"
 edition = "2024"
+description = "Household chores with a cadence, synced live across devices"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sebastianljunggren/sysslor"
 
 [dependencies]
 anyhow = "1.0.104"
