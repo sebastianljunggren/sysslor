@@ -19,3 +19,13 @@ Element.prototype.animate ??= function () {
   queueMicrotask(() => animation.onfinish?.());
   return animation as unknown as Animation;
 };
+
+// jsdom has no modal dialogs.
+HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+  if (!this.open) return;
+  this.open = false;
+  this.dispatchEvent(new Event('close'));
+};

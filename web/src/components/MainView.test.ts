@@ -11,6 +11,11 @@ function taskNames() {
   return screen.getAllByRole('button', { name: /^Mark .* as done$/ }).map((b) => b.getAttribute('aria-label')!.slice(5, -8));
 }
 
+async function completeAs(user: ReturnType<typeof userEvent.setup>, task: string, person: string) {
+  await user.click(screen.getByRole('button', { name: `Mark ${task} as done` }));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: person }));
+}
+
 /** Completions succeed unless `fail()` says otherwise; refetches return the fixtures. */
 function stubCompletions(fail: () => boolean = () => false) {
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
@@ -29,33 +34,14 @@ function stubCompletions(fail: () => boolean = () => false) {
 
 describe('MainView', () => {
   beforeEach(() => {
-    data.executorId = null;
     data.groupFilter = null;
     data.actionError = null;
   });
 
-  describe('executor', () => {
-    it('falls back to the first person if the picked one is gone', () => {
-      data.executorId = 99;
-      render(MainView, { view: projectView(), executors });
-      expect(screen.getByRole('radio', { name: 'Anna' })).toBeChecked();
-    });
-
-    it('remembers the picked person', async () => {
-      const user = userEvent.setup();
-      render(MainView, { view: projectView(), executors });
-
-      await user.click(screen.getByRole('radio', { name: 'Bo' }));
-
-      expect(data.executorId).toBe(2);
-      expect(localStorage.getItem('sysslor.executor')).toBe('2');
-    });
-
-    it('asks to add people and disables completing without any', () => {
-      render(MainView, { view: projectView(), executors: [] });
-      expect(screen.queryByRole('radio', { name: 'Anna' })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Mark Dishes as done' })).toBeDisabled();
-    });
+  it('asks to add people and disables completing without any', () => {
+    render(MainView, { view: projectView(), executors: [] });
+    expect(screen.getByRole('link', { name: 'Add people' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark Dishes as done' })).toBeDisabled();
   });
 
   describe('group filter', () => {
@@ -112,18 +98,31 @@ describe('MainView', () => {
   });
 
   describe('completing', () => {
+    it('asks who did it without preselecting anyone', async () => {
+      const user = userEvent.setup();
+      render(MainView, { view: projectView(), executors });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mark Towels as done' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'Complete Towels' });
+      expect(within(dialog).getByRole('button', { name: 'Anna' })).toBeEnabled();
+      expect(within(dialog).getByRole('button', { name: 'Bo' })).toBeEnabled();
+      expect(within(dialog).getByLabelText('Done at')).toBeInTheDocument();
+    });
+
     it('saves a completion by the picked person and offers to undo it', async () => {
       const user = userEvent.setup();
       const fetch = stubCompletions();
-      data.executorId = 2;
       render(MainView, { view: projectView(), executors });
 
-      await user.click(screen.getByRole('button', { name: 'Mark Towels as done' }));
+      await completeAs(user, 'Towels', 'Bo');
 
       const [url, init] = fetch.mock.calls[0];
       const id = url.replace('/api/completions/', '');
       expect(id).toMatch(UUIDV7);
       expect(JSON.parse(init!.body as string)).toMatchObject({ task_id: 2, executor_id: 2 });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
       const toast = await screen.findByRole('status');
       expect(toast).toHaveTextContent('Towels done');
@@ -140,17 +139,16 @@ describe('MainView', () => {
       render(MainView, { view: projectView(), executors });
       const puts = () => fetch.mock.calls.filter(([, init]) => init?.method === 'PUT').map(([url]) => url);
 
-      await user.click(screen.getByRole('button', { name: 'Mark Dishes as done' }));
+      await completeAs(user, 'Dishes', 'Anna');
       expect(data.actionError).toBe('boom (500)');
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
 
       failing = false;
-      await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Mark Dishes as done' })).toBeEnabled());
-      await user.click(screen.getByRole('button', { name: 'Mark Dishes as done' }));
+      await completeAs(user, 'Dishes', 'Anna');
       await screen.findByRole('status');
 
       // The next completion of the same task is a new one.
-      await user.click(screen.getByRole('button', { name: 'Mark Dishes as done' }));
+      await completeAs(user, 'Dishes', 'Anna');
 
       const [first, retry, next] = puts();
       expect(retry).toBe(first);
@@ -163,7 +161,7 @@ describe('MainView', () => {
       stubCompletions();
       render(MainView, { view: projectView(), executors });
 
-      await user.click(screen.getByRole('button', { name: 'Mark Dishes as done' }));
+      await completeAs(user, 'Dishes', 'Anna');
       await vi.waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument());
 
       await vi.advanceTimersByTimeAsync(7_900);

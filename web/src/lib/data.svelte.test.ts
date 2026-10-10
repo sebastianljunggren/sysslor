@@ -120,13 +120,11 @@ describe('logOut', () => {
 describe('device preferences', () => {
   beforeEach(() => localStorage.clear());
 
-  it('remembers the picked executor and group across reloads', async () => {
+  it('remembers the picked group across reloads', async () => {
     const first = await load();
-    first.pickExecutor(2);
     first.pickGroupFilter(10);
 
     const { data } = await load();
-    expect(data.executorId).toBe(2);
     expect(data.groupFilter).toBe(10);
   });
 
@@ -156,12 +154,11 @@ describe('device preferences', () => {
       throw new DOMException('denied', 'SecurityError');
     });
 
-    const { data, pickExecutor, pickGroupFilter } = await load();
-    expect(data).toMatchObject({ executorId: null, groupFilter: null });
+    const { data, pickGroupFilter } = await load();
+    expect(data.groupFilter).toBeNull();
 
-    pickExecutor(2);
     pickGroupFilter(10);
-    expect(data).toMatchObject({ executorId: 2, groupFilter: 10 });
+    expect(data.groupFilter).toBe(10);
   });
 });
 

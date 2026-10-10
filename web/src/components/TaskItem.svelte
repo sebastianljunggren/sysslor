@@ -19,7 +19,8 @@
     group?: Group;
     executors: Executor[];
     canComplete: boolean;
-    oncomplete: () => Promise<void>;
+    /** Asks who did it and when. */
+    oncomplete: () => void;
   } = $props();
 
   let busy = $state(false);
@@ -92,8 +93,8 @@
     <button
       class="complete"
       aria-label={m.mark_done({ name: task.name })}
-      disabled={!canComplete || busy}
-      onclick={() => run(oncomplete)}>✓</button
+      disabled={!canComplete}
+      onclick={oncomplete}>✓</button
     >
   </div>
 
