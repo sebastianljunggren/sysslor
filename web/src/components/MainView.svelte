@@ -4,16 +4,12 @@
   import type { ProjectView } from '../lib/api/ProjectView';
   import type { TaskView } from '../lib/api/TaskView';
   import { deleteCompletion, putCompletion, uuidv7 } from '../lib/client';
-  import { data, mutate, pickExecutor, pickGroupFilter, type GroupFilter } from '../lib/data.svelte';
+  import { data, mutate, pickGroupFilter, type GroupFilter } from '../lib/data.svelte';
   import { m } from '../lib/paraglide/messages.js';
+  import CompleteDialog from './CompleteDialog.svelte';
   import TaskItem from './TaskItem.svelte';
 
   let { view, executors }: { view: ProjectView; executors: Executor[] } = $props();
-
-  // Falls back to the first executor if the stored one was never set or is gone.
-  const executor = $derived(
-    executors.find((e) => e.id === data.executorId) ?? executors[0] ?? null,
-  );
 
   const groupsById = $derived(new Map(view.groups.map((g) => [g.id, g])));
   const hasUngrouped = $derived(view.tasks.some((t) => t.group_id === null));
@@ -36,6 +32,7 @@
     ...(hasUngrouped ? [{ value: 'none' as const, label: m.no_group() }] : []),
   ]);
 
+  let completing = $state<TaskView | null>(null);
   let undo = $state<{ completionId: string; taskName: string } | null>(null);
   let undoTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -43,12 +40,11 @@
   // reached the server despite the error isn't registered twice.
   const pendingIds = new Map<number, string>();
 
-  async function complete(task: TaskView) {
-    if (!executor) return;
+  async function complete(task: TaskView, executorId: number, completedAt: number) {
     const id = pendingIds.get(task.id) ?? uuidv7();
     pendingIds.set(task.id, id);
     const completion = await mutate(() =>
-      putCompletion(id, { task_id: task.id, executor_id: executor.id, completed_at: Date.now() }),
+      putCompletion(id, { task_id: task.id, executor_id: executorId, completed_at: completedAt }),
     );
     if (!completion) return;
     pendingIds.delete(task.id);
@@ -74,21 +70,6 @@
 
 {#if executors.length === 0}
   <p class="muted">{m.no_people()} <a href="#edit">{m.add_people()}</a></p>
-{:else}
-  <fieldset class="chips">
-    <legend>{m.who_is_doing_it()}</legend>
-    {#each executors as candidate (candidate.id)}
-      <label class:selected={candidate.id === executor?.id}>
-        <input
-          type="radio"
-          name="executor"
-          checked={candidate.id === executor?.id}
-          onchange={() => pickExecutor(candidate.id)}
-        />
-        {candidate.name}
-      </label>
-    {/each}
-  </fieldset>
 {/if}
 
 {#if view.groups.length > 0 && view.tasks.length > 0}
@@ -120,13 +101,20 @@
           {task}
           group={filter === null && task.group_id !== null ? groupsById.get(task.group_id) : undefined}
           {executors}
-          canComplete={executor !== null}
-          oncomplete={() => complete(task)}
+          canComplete={executors.length > 0}
+          oncomplete={() => (completing = task)}
         />
       </li>
     {/each}
   </ul>
 {/if}
+
+<CompleteDialog
+  task={completing}
+  {executors}
+  oncomplete={(executorId, completedAt) => complete(completing!, executorId, completedAt)}
+  onclose={() => (completing = null)}
+/>
 
 {#if undo}
   <div class="toast" role="status">

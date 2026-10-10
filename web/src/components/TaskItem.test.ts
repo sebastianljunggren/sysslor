@@ -39,9 +39,9 @@ describe('TaskItem', () => {
     expect(screen.getByRole('button', { expanded: false })).toBeDisabled();
   });
 
-  it('completes the task unless no one is picked', async () => {
+  it('completes the task unless there is no one to do it', async () => {
     const user = userEvent.setup();
-    const oncomplete = vi.fn().mockResolvedValue(undefined);
+    const oncomplete = vi.fn();
     const { rerender } = renderItem({ oncomplete });
 
     await user.click(screen.getByRole('button', { name: 'Mark Dishes as done' }));

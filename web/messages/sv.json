@@ -23,6 +23,7 @@
   "no_chores": "Inga sysslor än.",
   "add_chores": "Lägg till sysslor",
   "task_done": "{name} klar",
+  "complete_task": "Klarmarkera {name}",
   "mark_done": "Markera {name} som klar",
   "done_at": "Utförd",
   "change_time": "Ändra tid",
