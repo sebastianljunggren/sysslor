@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/sebastianljunggren/sysslor/compare/v0.2.0...v0.3.0) (2026-10-10)
+
+
+### Features
+
+* move executor picker to modal ([#21](https://github.com/sebastianljunggren/sysslor/issues/21)) ([171229f](https://github.com/sebastianljunggren/sysslor/commit/171229f3bc6b7433accf1e670ad64b47f5bc674a))
+
 ## [0.2.0](https://github.com/sebastianljunggren/sysslor/compare/v0.1.0...v0.2.0) (2026-10-06)
 
 
