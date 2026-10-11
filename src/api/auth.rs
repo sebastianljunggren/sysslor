@@ -210,21 +210,21 @@ mod tests {
     #[sqlx::test]
     async fn forged_sessions_are_rejected(pool: SqlitePool) {
         let state = state(&pool);
-        let now = Timestamp::now().as_millisecond();
+        // Read the clock once: a second read 1 ms later would make the "tampered" value
+        // below equal to the genuinely signed one.
+        let issued_at = Timestamp::now();
+        let millis = issued_at.as_millisecond().to_string();
         let other_key = AppState {
             cookie_key: axum_extra::extract::cookie::Key::derive_from(&[8; 32]),
             ..state.clone()
         };
-        let cookie = session_cookie(&state, Timestamp::now());
+        let cookie = session_cookie(&state, issued_at);
         let (_, signature_and_value) = cookie.split_once('=').unwrap();
-        let tampered = format!(
-            "session={}{}",
-            &signature_and_value[..signature_and_value.len() - 13],
-            now + 1
-        );
+        let signature = signature_and_value.strip_suffix(&millis).unwrap();
+        let tampered = format!("session={signature}{}", issued_at.as_millisecond() + 1);
         for cookie in [
-            format!("session={now}"),
-            session_cookie(&other_key, Timestamp::now()),
+            format!("session={millis}"),
+            session_cookie(&other_key, issued_at),
             tampered,
         ] {
             let status = status(&state, get("/api/projects/1", Some(&cookie))).await;
