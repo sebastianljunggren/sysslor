@@ -61,9 +61,12 @@ jobs:
             exit 1
           fi
 
-  image:
+  build:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [web, rust]
+    uses: ./.github/workflows/build.yml
+
+  image:
+    needs: [web, rust, build]
     permissions:
       contents: read
       packages: write

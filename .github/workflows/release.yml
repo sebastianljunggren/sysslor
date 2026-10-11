@@ -24,6 +24,7 @@ jobs:
       minor: ${{ steps.release.outputs.minor }}
       patch: ${{ steps.release.outputs.patch }}
       sha: ${{ steps.release.outputs.sha }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - id: release
         uses: googleapis/release-please-action@v5
@@ -33,9 +34,40 @@ jobs:
 
   # Lives here rather than in an `on: release` workflow: a release created with
   # GITHUB_TOKEN doesn't trigger other workflows.
-  image:
+  build:
     if: needs.release-please.outputs.release_created == 'true'
     needs: release-please
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.release-please.outputs.sha }}
+
+  assets:
+    needs: [release-please, build]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sysslor-*-linux-musl
+          path: ${{ runner.temp }}/artifacts
+      - name: Upload release assets
+        working-directory: ${{ runner.temp }}/artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          mkdir ../assets
+          for dir in sysslor-*-linux-musl; do
+            cp "$dir/sysslor" "../assets/${dir/sysslor-/sysslor-$TAG-}"
+          done
+          cd ../assets
+          chmod 755 sysslor-*
+          sha256sum sysslor-* > SHA256SUMS
+          gh release upload "$TAG" sysslor-* SHA256SUMS --repo "$GITHUB_REPOSITORY"
+
+  image:
+    needs: [release-please, build]
     permissions:
       contents: read
       packages: write
