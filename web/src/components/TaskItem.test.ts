@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clock } from '../lib/clock.svelte';
 import { executors, groups, jsonResponse, stubApi, task } from '../test/fixtures';
 import TaskItem from './TaskItem.svelte';
 
@@ -20,6 +21,7 @@ describe('TaskItem', () => {
   beforeEach(() => {
     // Only `Date`, so user-event's timers keep running.
     vi.useFakeTimers({ now, toFake: ['Date'] });
+    clock.now = now.getTime();
   });
 
   it('summarizes the task', () => {
@@ -27,8 +29,11 @@ describe('TaskItem', () => {
 
     expect(screen.getByText('!!')).toHaveAttribute('title', 'Priority 2');
     expect(screen.getByText('Kitchen')).toHaveClass('colored');
-    expect(screen.getByText('Tomorrow')).toBeInTheDocument();
-    expect(screen.getByText(/Every day/)).toHaveTextContent(/Bo today 7:30\sAM/);
+    expect(screen.getByText('Due tomorrow')).toHaveAttribute('title', 'Tuesday, October 6, 2026');
+    expect(screen.getByText('Completed 10 hours ago by Bo')).toHaveAttribute(
+      'title',
+      expect.stringMatching(/^Monday, October 5, 2026 at 7:30\sAM$/),
+    );
   });
 
   it('marks overdue tasks and has nothing to expand before the first completion', () => {

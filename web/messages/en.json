@@ -89,23 +89,8 @@
   ],
 
   "never_done": "Never done",
-  "due_today": "Today",
-  "due_tomorrow": "Tomorrow",
-  "due_in_days": [
-    {
-      "declarations": ["input days", "local daysPlural = days: plural"],
-      "selectors": ["daysPlural"],
-      "match": { "daysPlural=one": "In {days} day", "daysPlural=*": "In {days} days" }
-    }
-  ],
-  "overdue_days": [
-    {
-      "declarations": ["input days", "local daysPlural = days: plural"],
-      "selectors": ["daysPlural"],
-      "match": { "daysPlural=one": "Overdue {days} day", "daysPlural=*": "Overdue {days} days" }
-    }
-  ],
-  "instant_today": "today {time}",
-  "instant_yesterday": "yesterday {time}",
-  "instant_date": "{date} {time}"
+  "due_relative": "Due {when}",
+  "was_due": "Was due {when}",
+  "just_now": "just now",
+  "completed_by": "Completed {when} by {who}"
 }

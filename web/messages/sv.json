@@ -99,23 +99,8 @@
   ],
 
   "never_done": "Aldrig gjord",
-  "due_today": "Idag",
-  "due_tomorrow": "Imorgon",
-  "due_in_days": [
-    {
-      "declarations": ["input days", "local daysPlural = days: plural"],
-      "selectors": ["daysPlural"],
-      "match": { "daysPlural=one": "Om {days} dag", "daysPlural=*": "Om {days} dagar" }
-    }
-  ],
-  "overdue_days": [
-    {
-      "declarations": ["input days", "local daysPlural = days: plural"],
-      "selectors": ["daysPlural"],
-      "match": { "daysPlural=one": "Försenad {days} dag", "daysPlural=*": "Försenad {days} dagar" }
-    }
-  ],
-  "instant_today": "idag {time}",
-  "instant_yesterday": "igår {time}",
-  "instant_date": "{date} {time}"
+  "due_relative": "Ska göras {when}",
+  "was_due": "Skulle ha gjorts {when}",
+  "just_now": "nyss",
+  "completed_by": "Gjord {when} av {who}"
 }

@@ -3,8 +3,16 @@
   import type { Group } from '../lib/api/Group';
   import type { TaskView } from '../lib/api/TaskView';
   import { deleteCompletion, putCompletion } from '../lib/client';
+  import { clock } from '../lib/clock.svelte';
   import { mutate } from '../lib/data.svelte';
-  import { formatCadence, formatDue, formatInstant, localDateTime } from '../lib/format';
+  import {
+    formatCadence,
+    formatDue,
+    formatDueAbsolute,
+    formatInstant,
+    formatInstantAbsolute,
+    localDateTime,
+  } from '../lib/format';
   import { m } from '../lib/paraglide/messages.js';
 
   let {
@@ -83,10 +91,19 @@
         {/if}
       </span>
       <span class="meta">
-        <span class="due">{formatDue(task.due)}</span>
+        {#if task.due}
+          <time class="due" datetime={task.due} title={formatDueAbsolute(task.due)}
+            >{formatDue(task.due, new Date(clock.now))}</time
+          >
+        {:else}
+          <span class="due">{formatDue(task.due)}</span>
+        {/if}
         · {formatCadence(task.cadence)}
         {#if last}
-          · {lastBy} {formatInstant(last.completed_at)}
+          ·
+          <time datetime={new Date(last.completed_at).toISOString()} title={formatInstantAbsolute(last.completed_at)}
+            >{m.completed_by({ when: formatInstant(last.completed_at, new Date(clock.now)), who: lastBy })}</time
+          >
         {/if}
       </span>
     </button>
