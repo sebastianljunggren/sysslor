@@ -8,10 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "screenshots": "playwright test"
   },
   "devDependencies": {
     "@inlang/paraglide-js": "^2.25.4",
+    "@playwright/test": "1.64.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/svelte": "^5.4.2",

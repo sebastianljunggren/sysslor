@@ -6,6 +6,11 @@ prioritized, are sorted to the top. Changes show up live on every open device. I
 one family sharing a single password, and ships as a single small container image backed by
 SQLite.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tasks-dark.png">
+  <img src="docs/screenshots/tasks-light.png" width="390" alt="The task list on a phone: overdue tasks on top, each with its group, cadence and who last did it">
+</picture>
+
 ## Running
 
 ```sh

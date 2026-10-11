@@ -6,3 +6,5 @@
 *.db-wal
 /web/src/lib/paraglide
 /dist
+/web/test-results
+/web/playwright-report

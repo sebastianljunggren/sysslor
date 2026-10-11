@@ -53,7 +53,7 @@ jobs:
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
       - run: cargo clippy --all-targets --locked --features demo -- -D warnings
-      - run: cargo test --locked --features demo demo
+      - run: cargo test --locked --features demo -- demo clock
       - name: Check ts-rs types are up to date
         run: |
           if [ -n "$(git status --porcelain web/src/lib/api)" ]; then
@@ -61,6 +61,154 @@ jobs:
             git status --porcelain web/src/lib/api
             git diff web/src/lib/api
             exit 1
+          fi
+
+  # Static and with web/dist embedded, so it runs in the Playwright container below.
+  demo-binary:
+    runs-on: ubuntu-26.04
+    needs: web
+    env:
+      SQLX_OFFLINE: "true"
+      TARGET: x86_64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ env.TARGET }}-demo
+      - run: cargo build --release --locked --features demo --target "$TARGET"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sysslor-demo
+          path: target/${{ env.TARGET }}/release/sysslor
+          if-no-files-found: error
+          retention-days: 1
+
+  # Renders docs/screenshots/ for the README. A pinned browser and fonts plus a frozen
+  # clock make the output reproducible, so an unchanged UI gives no diff.
+  screenshots:
+    runs-on: ubuntu-26.04
+    needs: demo-binary
+    container:
+      # Keep in step with @playwright/test in web/package.json; Renovate bumps both together.
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      files: ${{ steps.diff.outputs.files }}
+      artifact-url: ${{ steps.upload.outputs.artifact-url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: sysslor-demo
+          path: demo-bin
+      - run: chmod +x demo-bin/sysslor
+      - run: npm --prefix web ci
+      # Only rewrites screenshots that no longer match, so identical renders leave no diff.
+      - run: npm --prefix web run screenshots -- --update-snapshots=changed
+        env:
+          SYSSLOR_BIN: ../demo-bin/sysslor
+      - id: diff
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          files="$(git status --porcelain docs/screenshots | awk '{ print $2 }' | xargs -r -n1 basename | paste -sd ' ')"
+          if [ -n "$files" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "files=$files" >> "$GITHUB_OUTPUT"
+            echo "Changed screenshots: $files" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - id: upload
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: docs/screenshots
+          if-no-files-found: error
+          retention-days: 7
+
+  # Tells the author when a PR changes the screenshots; they are updated after the merge.
+  # Fork PRs get a read-only token, so they are skipped.
+  screenshots-comment:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-26.04
+    needs: screenshots
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      CHANGED: ${{ needs.screenshots.outputs.changed }}
+      FILES: ${{ needs.screenshots.outputs.files }}
+      ARTIFACT_URL: ${{ needs.screenshots.outputs.artifact-url }}
+    steps:
+      - run: |
+          marker='<!-- sysslor-screenshots -->'
+          id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)"
+          if [ "$CHANGED" = true ]; then
+            body="$marker
+          This PR changes the README screenshots: \`${FILES// /\`, \`}\`.
+
+          [Download the new screenshots]($ARTIFACT_URL). After the merge, CI opens a PR that updates them on \`main\`."
+          elif [ -n "$id" ]; then
+            body="$marker
+          This PR no longer changes the README screenshots."
+          else
+            exit 0
+          fi
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
+          fi
+
+  # Keeps one bot PR with the screenshots for the current main, or closes it when main
+  # already matches. Needs "Allow GitHub Actions to create and approve pull requests".
+  screenshots-pr:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    needs: screenshots
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: bot/screenshots
+      CHANGED: ${{ needs.screenshots.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+      - if: needs.screenshots.outputs.changed == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: screenshots
+          path: docs/screenshots
+      - run: |
+          pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ "$CHANGED" != true ]; then
+            if [ -n "$pr" ]; then
+              gh pr close "$pr" --delete-branch --comment "The screenshots on main are up to date."
+            fi
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add docs/screenshots
+          git commit -m 'chore: update screenshots'
+          git push --force origin "$BRANCH"
+          if [ -z "$pr" ]; then
+            gh pr create --head "$BRANCH" --title 'chore: update screenshots' \
+              --body "Screenshots rendered from $GITHUB_SHA by CI, for the README."
           fi
 
   build:
