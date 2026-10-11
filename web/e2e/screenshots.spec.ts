@@ -8,6 +8,9 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Password').fill('demo');
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.getByText('Clean range hood filter')).toBeVisible();
+  // The container has no proper UI font, so `system-ui` falls back to a Chinese one. Liberation
+  // Sans ships with the image and looks like a typical system font.
+  await page.addStyleTag({ content: 'body { font-family: "Liberation Sans", sans-serif; }' });
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
