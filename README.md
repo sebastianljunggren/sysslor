@@ -26,7 +26,7 @@ docker run -d --name sysslor \
   -v "$PWD/sysslor-data:/data" \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
-  ghcr.io/sebastianljunggren/sysslor:0.3.0
+  ghcr.io/sebastianljunggren/sysslor:0.4.0
 ```
 
 With Podman, `:U` on the volume takes care of the ownership:
@@ -37,7 +37,7 @@ podman run -d --name sysslor \
   -v sysslor-data:/data:U \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
-  ghcr.io/sebastianljunggren/sysslor:0.3.0
+  ghcr.io/sebastianljunggren/sysslor:0.4.0
 ```
 
 <!-- x-release-please-end -->

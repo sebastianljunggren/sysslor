@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/sebastianljunggren/sysslor/compare/v0.3.0...v0.4.0) (2026-10-11)
+
+
+### Features
+
+* show due dates and completions as relative times ([#28](https://github.com/sebastianljunggren/sysslor/issues/28)) ([abda800](https://github.com/sebastianljunggren/sysslor/commit/abda800ed03f00d8b33d3fceb9004f18c2987f00))
+
 ## [0.3.0](https://github.com/sebastianljunggren/sysslor/compare/v0.2.0...v0.3.0) (2026-10-10)
 
 
