@@ -52,6 +52,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
+      - run: cargo clippy --all-targets --locked --features demo -- -D warnings
+      - run: cargo test --locked --features demo demo
       - name: Check ts-rs types are up to date
         run: |
           if [ -n "$(git status --porcelain web/src/lib/api)" ]; then

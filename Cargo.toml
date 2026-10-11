@@ -6,6 +6,10 @@ description = "Household chores with a cadence, synced live across devices"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sebastianljunggren/sysslor"
 
+[features]
+# Adds the `seed-demo` subcommand. Never enabled in release images.
+demo = []
+
 [dependencies]
 anyhow = "1.0.104"
 axum = "0.8.9"

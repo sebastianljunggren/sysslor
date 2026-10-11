@@ -1,5 +1,7 @@
 mod api;
 mod db;
+#[cfg(feature = "demo")]
+mod demo;
 mod domain;
 
 use std::net::SocketAddr;
@@ -22,13 +24,11 @@ struct Config {
 
 impl Config {
     fn from_env() -> anyhow::Result<Self> {
-        let database_url = env_or("SYSSLOR_DATABASE_URL", "sqlite://sysslor.db");
+        let database_url = database_url_from_env();
         let bind_addr = env_or("SYSSLOR_BIND_ADDR", "0.0.0.0:8080")
             .parse()
             .context("SYSSLOR_BIND_ADDR is not a valid socket address")?;
-        let tz_name = env_or("SYSSLOR_TIME_ZONE", "Europe/Stockholm");
-        let time_zone = TimeZone::get(&tz_name)
-            .with_context(|| format!("SYSSLOR_TIME_ZONE {tz_name:?} is not a known time zone"))?;
+        let time_zone = time_zone_from_env()?;
         let locale_name = env_or("SYSSLOR_LOCALE", "en");
         let locale = Locale::try_from_str(&locale_name)
             .with_context(|| format!("SYSSLOR_LOCALE {locale_name:?} is not a valid locale"))?;
@@ -56,6 +56,16 @@ impl Config {
     }
 }
 
+fn database_url_from_env() -> String {
+    env_or("SYSSLOR_DATABASE_URL", "sqlite://sysslor.db")
+}
+
+fn time_zone_from_env() -> anyhow::Result<TimeZone> {
+    let tz_name = env_or("SYSSLOR_TIME_ZONE", "Europe/Stockholm");
+    TimeZone::get(&tz_name)
+        .with_context(|| format!("SYSSLOR_TIME_ZONE {tz_name:?} is not a known time zone"))
+}
+
 fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_owned())
 }
@@ -74,6 +84,11 @@ async fn main() -> anyhow::Result<()> {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+
+    #[cfg(feature = "demo")]
+    if std::env::args().nth(1).as_deref() == Some("seed-demo") {
+        return demo::run(&database_url_from_env(), &time_zone_from_env()?).await;
+    }
 
     let config = Config::from_env()?;
     let pool = db::connect(&config.database_url).await?;
