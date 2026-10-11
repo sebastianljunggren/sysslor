@@ -8,12 +8,23 @@ on:
         required: false
         type: string
         default: ""
+      web-dist-artifact:
+        description: web/dist artifact already uploaded in the caller's run, built here if empty
+        required: false
+        type: string
+        default: ""
+      demo:
+        description: Also build the x86_64 binary with the demo feature, as sysslor-demo
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   web:
+    if: inputs.web-dist-artifact == ''
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
@@ -36,6 +47,8 @@ jobs:
 
   binary:
     needs: web
+    # Still runs when web is skipped because the caller passed web-dist-artifact.
+    if: ${{ !failure() && !cancelled() }}
     strategy:
       matrix:
         include:
@@ -56,7 +69,7 @@ jobs:
       # rust-embed needs web/dist to exist at compile time.
       - uses: actions/download-artifact@v8
         with:
-          name: build-web-dist
+          name: ${{ inputs.web-dist-artifact || 'build-web-dist' }}
           path: web/dist
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
       - uses: dtolnay/rust-toolchain@stable
@@ -81,3 +94,18 @@ jobs:
           path: target/${{ env.TARGET }}/release/sysslor
           if-no-files-found: error
           retention-days: 7
+      # Overwrites target/$TARGET/release/sysslor, so it must come after the upload above.
+      # Only sysslor itself recompiles, the dependencies are shared with the release build.
+      - if: inputs.demo && matrix.arch == 'x86_64'
+        run: |
+          cargo build --release --locked --features demo --target "$TARGET"
+          mkdir demo-bin
+          cp "target/$TARGET/release/sysslor" demo-bin/sysslor-demo
+      # Must not match sysslor-*-linux-musl, which release.yml attaches to releases.
+      - if: inputs.demo && matrix.arch == 'x86_64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: sysslor-demo
+          path: demo-bin/sysslor-demo
+          if-no-files-found: error
+          retention-days: 1

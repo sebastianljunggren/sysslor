@@ -63,39 +63,20 @@ jobs:
             exit 1
           fi
 
-  # Static and with web/dist embedded, so it runs in the Playwright container below.
-  demo-binary:
-    runs-on: ubuntu-26.04
+  # The release binaries for both arches, plus the x86_64 demo binary for screenshots below.
+  build:
     needs: web
-    env:
-      SQLX_OFFLINE: "true"
-      TARGET: x86_64-unknown-linux-musl
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: web-dist
-          path: web/dist
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ env.TARGET }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ env.TARGET }}-demo
-      - run: cargo build --release --locked --features demo --target "$TARGET"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: sysslor-demo
-          path: target/${{ env.TARGET }}/release/sysslor
-          if-no-files-found: error
-          retention-days: 1
+    uses: ./.github/workflows/build.yml
+    with:
+      web-dist-artifact: web-dist
+      demo: true
 
   # Renders docs/screenshots/ for the README. A pinned browser and fonts plus a frozen
-  # clock make the output reproducible, so an unchanged UI gives no diff.
+  # clock make the output reproducible, so an unchanged UI gives no diff. The demo binary
+  # is static and has web/dist embedded, so it runs in the Playwright container as is.
   screenshots:
     runs-on: ubuntu-26.04
-    needs: demo-binary
+    needs: build
     container:
       # Keep in step with @playwright/test in web/package.json; Renovate bumps both together.
       image: mcr.microsoft.com/playwright:v1.64.0-noble
@@ -110,12 +91,12 @@ jobs:
         with:
           name: sysslor-demo
           path: demo-bin
-      - run: chmod +x demo-bin/sysslor
+      - run: chmod +x demo-bin/sysslor-demo
       - run: npm --prefix web ci
       # Only rewrites screenshots that no longer match, so identical renders leave no diff.
       - run: npm --prefix web run screenshots -- --update-snapshots=changed
         env:
-          SYSSLOR_BIN: ../demo-bin/sysslor
+          SYSSLOR_BIN: ../demo-bin/sysslor-demo
       - id: diff
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -222,11 +203,8 @@ jobs:
               --body "Screenshots rendered from $GITHUB_SHA by CI, for the README."
           fi
 
-  build:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/build.yml
-
   image:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [web, rust, build]
     permissions:
       contents: read
