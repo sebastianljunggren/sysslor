@@ -22,6 +22,7 @@ pub fn state(pool: &SqlitePool) -> AppState {
         events: Events::new(),
         admin_password: PASSWORD.into(),
         cookie_key: Key::derive_from(&[7; 32]),
+        clock: Default::default(),
     }
 }
 

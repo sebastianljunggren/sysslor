@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use axum::Json;
 use axum::extract::{Path, State};
-use jiff::Timestamp;
 
 use super::types::{Project, ProjectInput, ProjectView, TaskView};
 use super::{ApiError, ApiResult, AppState, validate_name};
@@ -26,7 +25,7 @@ pub async fn get(
         .map(|(&task_id, completion)| (task_id, completion.completed_at))
         .collect();
 
-    let now = Timestamp::now();
+    let now = state.clock.now();
     let tasks = sort_tasks(
         tasks,
         &last_completed,

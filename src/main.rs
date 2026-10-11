@@ -1,4 +1,5 @@
 mod api;
+mod clock;
 mod db;
 #[cfg(feature = "demo")]
 mod demo;
@@ -87,7 +88,8 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(feature = "demo")]
     if std::env::args().nth(1).as_deref() == Some("seed-demo") {
-        return demo::run(&database_url_from_env(), &time_zone_from_env()?).await;
+        let now = clock::Clock::from_env()?.now();
+        return demo::run(&database_url_from_env(), &time_zone_from_env()?, now).await;
     }
 
     let config = Config::from_env()?;
@@ -101,6 +103,7 @@ async fn main() -> anyhow::Result<()> {
         events: events.clone(),
         admin_password: config.admin_password.into(),
         cookie_key: config.cookie_key,
+        clock: clock::Clock::from_env()?,
     };
     let app = api::router(state);
 

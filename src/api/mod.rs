@@ -22,6 +22,7 @@ use axum_extra::extract::cookie::Key;
 use jiff::tz::TimeZone;
 use sqlx::SqlitePool;
 
+use crate::clock::Clock;
 use crate::domain::Collator;
 
 pub use events::Events;
@@ -35,6 +36,7 @@ pub struct AppState {
     pub events: Events,
     pub admin_password: Arc<str>,
     pub cookie_key: Key,
+    pub clock: Clock,
 }
 
 impl FromRef<AppState> for Key {

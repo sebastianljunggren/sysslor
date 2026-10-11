@@ -89,9 +89,9 @@ const TASKS: [DemoTask; 13] = [
 ];
 
 /// Seeds the database at `SYSSLOR_DATABASE_URL` and exits, see `seed`.
-pub async fn run(database_url: &str, time_zone: &TimeZone) -> anyhow::Result<()> {
+pub async fn run(database_url: &str, time_zone: &TimeZone, now: Timestamp) -> anyhow::Result<()> {
     let pool = db::connect(database_url).await?;
-    seed(&pool, Timestamp::now(), time_zone).await?;
+    seed(&pool, now, time_zone).await?;
     tracing::info!(
         "seeded {database_url} with {} groups and {} tasks",
         GROUPS.len(),
@@ -144,15 +144,12 @@ async fn seed(pool: &SqlitePool, now: Timestamp, tz: &TimeZone) -> anyhow::Resul
             continue;
         };
         // An evening completion looks natural, but today's must not be in the future.
-        let completed_at = if days_ago == 0 {
-            now
-        } else {
-            today
-                .checked_sub(Span::new().days(days_ago))?
-                .to_datetime(Time::constant(18, 30, 0, 0))
-                .to_zoned(tz.clone())?
-                .timestamp()
-        };
+        let completed_at = today
+            .checked_sub(Span::new().days(days_ago))?
+            .to_datetime(Time::constant(18, 30, 0, 0))
+            .to_zoned(tz.clone())?
+            .timestamp()
+            .min(now);
         let millis = u64::try_from(completed_at.as_millisecond())
             .with_context(|| format!("completion time {completed_at} is before 1970"))?;
         // Deterministic "random" bits keep reruns on a fresh database reproducible.

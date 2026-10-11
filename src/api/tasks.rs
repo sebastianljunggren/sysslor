@@ -1,7 +1,6 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use jiff::Timestamp;
 
 use super::types::{Task, TaskInput};
 use super::{ApiError, ApiResult, AppState, validate_name};
@@ -16,7 +15,7 @@ pub async fn create(
     Json(input): Json<TaskInput>,
 ) -> ApiResult<(StatusCode, Json<Task>)> {
     let fields = validate(input)?;
-    let write = db::tasks::create(&state.pool, project_id, &fields, Timestamp::now()).await?;
+    let write = db::tasks::create(&state.pool, project_id, &fields, state.clock.now()).await?;
     let (project_id, task) = written(write, "no such project")?;
     state.events.changed(Some(project_id));
     Ok((StatusCode::CREATED, Json(task.into())))
@@ -39,7 +38,7 @@ pub async fn archive(
     State(state): State<AppState>,
     Path(id): Path<TaskId>,
 ) -> ApiResult<StatusCode> {
-    let Some(project_id) = db::tasks::archive(&state.pool, id, Timestamp::now()).await? else {
+    let Some(project_id) = db::tasks::archive(&state.pool, id, state.clock.now()).await? else {
         return Err(ApiError::NotFound("no such task"));
     };
     state.events.changed(Some(project_id));
