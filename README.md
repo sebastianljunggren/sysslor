@@ -8,17 +8,34 @@ SQLite.
 
 ## Running
 
+The container runs as UID 65532, so `/data` must be writable by that user.
+
+With Docker, create a directory owned by that user and bind mount it:
+
+<!-- x-release-please-start-version -->
+
+```sh
+mkdir sysslor-data && sudo chown 65532:65532 sysslor-data
+docker run -d --name sysslor \
+  -p 8080:8080 \
+  -v "$PWD/sysslor-data:/data" \
+  -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
+  -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
+  ghcr.io/sebastianljunggren/sysslor:0.3.0
+```
+
+With Podman, `:U` on the volume takes care of the ownership:
+
 ```sh
 podman run -d --name sysslor \
   -p 8080:8080 \
   -v sysslor-data:/data:U \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
-  ghcr.io/sebastianljunggren/sysslor:latest
+  ghcr.io/sebastianljunggren/sysslor:0.3.0
 ```
 
-The container runs as UID 65532, so `/data` must be writable by that user. With Podman, `:U`
-takes care of it. With Docker, `chown` the volume or bind mount to `65532:65532` first.
+<!-- x-release-please-end -->
 
 Keep `SYSSLOR_COOKIE_KEY` stable across restarts, or everyone gets logged out.
 
