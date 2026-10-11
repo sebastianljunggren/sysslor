@@ -94,8 +94,12 @@
       class="complete"
       aria-label={m.mark_done({ name: task.name })}
       disabled={!canComplete}
-      onclick={oncomplete}>✓</button
+      onclick={oncomplete}
     >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </button>
   </div>
 
   {#if expanded && last}
@@ -186,8 +190,20 @@
     flex: none;
     width: 3rem;
     height: 3rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
     border-radius: 50%;
-    font-size: 1.4rem;
+  }
+
+  .complete svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .complete:not(:disabled):hover {
