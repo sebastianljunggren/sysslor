@@ -64,19 +64,73 @@ jobs:
           fi
 
   # The release binaries for both arches, plus the x86_64 demo binary for screenshots below.
-  build:
+  binary:
     needs: web
-    uses: ./.github/workflows/build.yml
-    with:
-      web-dist-artifact: web-dist
-      demo: true
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          # Native runner, so musl-gcc from musl-tools can build the bundled SQLite without
+          # a cross toolchain.
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      SQLX_OFFLINE: "true"
+      TARGET: ${{ matrix.arch }}-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v7
+      # rust-embed needs web/dist to exist at compile time.
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ env.TARGET }}
+      - run: cargo build --release --locked --target "$TARGET"
+      # The image is FROM scratch, so a dynamically linked binary would not start.
+      - name: Check the binary is static
+        run: |
+          info="$(file "target/$TARGET/release/sysslor")"
+          echo "$info"
+          if ! grep -Eq 'statically linked|static-pie linked' <<< "$info"; then
+            echo "::error::sysslor is not statically linked"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sysslor-${{ matrix.arch }}-linux-musl
+          path: target/${{ env.TARGET }}/release/sysslor
+          if-no-files-found: error
+          retention-days: 7
+      # Overwrites target/$TARGET/release/sysslor, so it must come after the upload above.
+      # Only sysslor itself recompiles, the dependencies are shared with the release build.
+      - if: matrix.arch == 'x86_64'
+        run: |
+          cargo build --release --locked --features demo --target "$TARGET"
+          mkdir demo-bin
+          cp "target/$TARGET/release/sysslor" demo-bin/sysslor-demo
+      # Must not match sysslor-*-linux-musl, which the assets job attaches to releases.
+      - if: matrix.arch == 'x86_64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: sysslor-demo
+          path: demo-bin/sysslor-demo
+          if-no-files-found: error
+          retention-days: 1
 
   # Renders docs/screenshots/ for the README. A pinned browser and fonts plus a frozen
   # clock make the output reproducible, so an unchanged UI gives no diff. The demo binary
   # is static and has web/dist embedded, so it runs in the Playwright container as is.
   screenshots:
     runs-on: ubuntu-26.04
-    needs: build
+    needs: binary
     container:
       # Keep in step with @playwright/test in web/package.json; Renovate bumps both together.
       image: mcr.microsoft.com/playwright:v1.64.0-noble
@@ -203,12 +257,130 @@ jobs:
               --body "Screenshots rendered from $GITHUB_SHA by CI, for the README."
           fi
 
+  # Runs in this workflow rather than its own, so a release reuses the binaries and image
+  # built above instead of building the same commit again.
+  release-please:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      patch: ${{ steps.release.outputs.patch }}
+      sha: ${{ steps.release.outputs.sha }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      # The GitHub App's token rather than GITHUB_TOKEN: CI on a release PR opened with
+      # GITHUB_TOKEN waits for manual approval.
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      # The artifacts in this run are built from github.sha. release-please releases an
+      # older commit when the release merge's run was pending and replaced by a newer push,
+      # and those binaries must not be attached to it.
+      - if: steps.release.outputs.release_created == 'true' && steps.release.outputs.sha != github.sha
+        env:
+          TAG: ${{ steps.release.outputs.tag_name }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          echo "::error::$TAG was released from $SHA, but this run built $GITHUB_SHA. Build and upload its binaries and image by hand."
+          exit 1
+
+  assets:
+    if: needs.release-please.outputs.release_created == 'true'
+    needs: [rust, binary, release-please]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sysslor-*-linux-musl
+          path: ${{ runner.temp }}/artifacts
+      - name: Upload release assets
+        working-directory: ${{ runner.temp }}/artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          mkdir ../assets
+          for dir in sysslor-*-linux-musl; do
+            cp "$dir/sysslor" "../assets/${dir/sysslor-/sysslor-$TAG-}"
+          done
+          cd ../assets
+          chmod 755 sysslor-*
+          sha256sum sysslor-* > SHA256SUMS
+          gh release upload "$TAG" sysslor-* SHA256SUMS --repo "$GITHUB_REPOSITORY"
+
+  # Pushes :dev for every commit on main, and the version tags too when it was released.
   image:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [web, rust, build]
+    needs: [web, rust, binary, release-please]
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write
-    uses: ./.github/workflows/image.yml
-    with:
-      tags: dev
+    env:
+      IMAGE: ghcr.io/sebastianljunggren/sysslor
+    steps:
+      - uses: actions/checkout@v7
+      # Laid out by Docker arch name so the Dockerfile can use TARGETARCH.
+      - uses: actions/download-artifact@v8
+        with:
+          name: sysslor-x86_64-linux-musl
+          path: dist/amd64
+      - uses: actions/download-artifact@v8
+        with:
+          name: sysslor-aarch64-linux-musl
+          path: dist/arm64
+      - id: tags
+        name: Expand tags and labels
+        env:
+          RELEASED: ${{ needs.release-please.outputs.release_created }}
+          MAJOR: ${{ needs.release-please.outputs.major }}
+          MINOR: ${{ needs.release-please.outputs.minor }}
+          PATCH: ${{ needs.release-please.outputs.patch }}
+        run: |
+          {
+            echo "refs<<EOF"
+            echo "$IMAGE:dev"
+            if [ "$RELEASED" = true ]; then
+              echo "$IMAGE:$MAJOR.$MINOR.$PATCH"
+              echo "$IMAGE:$MAJOR.$MINOR"
+              echo "$IMAGE:latest"
+            fi
+            echo "EOF"
+            # The Dockerfile sets the static labels, these depend on the commit.
+            echo "labels<<EOF"
+            echo "org.opencontainers.image.revision=$GITHUB_SHA"
+            # :dev isn't a release, so it gets no version rather than a misleading one.
+            if [ "$RELEASED" = true ]; then
+              echo "org.opencontainers.image.version=$MAJOR.$MINOR.$PATCH"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The Dockerfile only copies files, so both platforms build here without emulation.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.tags.outputs.refs }}
+          labels: ${{ steps.tags.outputs.labels }}
+          push: true

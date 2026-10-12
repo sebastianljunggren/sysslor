@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Packages a prebuilt static musl binary from dist/<arch>/sysslor (see build.yml or AGENTS.md).
+# Packages a prebuilt static musl binary from dist/<arch>/sysslor (see ci.yml or AGENTS.md).
 FROM scratch
 ARG TARGETARCH
 LABEL org.opencontainers.image.source="https://github.com/sebastianljunggren/sysslor" \
