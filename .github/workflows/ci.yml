@@ -16,8 +16,8 @@ jobs:
   web:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: npm
@@ -27,7 +27,7 @@ jobs:
       - run: npm --prefix web run build
       - run: npm --prefix web run check
       - run: npm --prefix web test
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: web-dist
           path: web/dist
@@ -40,15 +40,15 @@ jobs:
     env:
       SQLX_OFFLINE: "true"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: web-dist
           path: web/dist
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
@@ -80,17 +80,17 @@ jobs:
       SQLX_OFFLINE: "true"
       TARGET: ${{ matrix.arch }}-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # rust-embed needs web/dist to exist at compile time.
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: web-dist
           path: web/dist
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           targets: ${{ env.TARGET }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           key: ${{ env.TARGET }}
       - run: cargo build --release --locked --target "$TARGET"
@@ -103,7 +103,7 @@ jobs:
             echo "::error::sysslor is not statically linked"
             exit 1
           fi
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sysslor-${{ matrix.arch }}-linux-musl
           path: target/${{ env.TARGET }}/release/sysslor
@@ -118,7 +118,7 @@ jobs:
           cp "target/$TARGET/release/sysslor" demo-bin/sysslor-demo
       # Must not match sysslor-*-linux-musl, which the assets job attaches to releases.
       - if: matrix.arch == 'x86_64'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sysslor-demo
           path: demo-bin/sysslor-demo
@@ -140,8 +140,8 @@ jobs:
       files: ${{ steps.diff.outputs.files }}
       artifact-url: ${{ steps.upload.outputs.artifact-url }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: sysslor-demo
           path: demo-bin
@@ -164,7 +164,7 @@ jobs:
           fi
       - id: upload
         if: steps.diff.outputs.changed == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: screenshots
           path: docs/screenshots
@@ -219,18 +219,18 @@ jobs:
       CHANGED: ${{ needs.screenshots.outputs.changed }}
     steps:
       - id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Pushes as the app too, so the push isn't attributed to GITHUB_TOKEN.
           token: ${{ steps.app-token.outputs.token }}
       - if: needs.screenshots.outputs.changed == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: screenshots
           path: docs/screenshots
@@ -273,7 +273,7 @@ jobs:
       # The GitHub App's token rather than GITHUB_TOKEN: CI on a release PR opened with
       # GITHUB_TOKEN waits for manual approval.
       - id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
@@ -281,7 +281,7 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - id: release
-        uses: googleapis/release-please-action@v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
@@ -304,7 +304,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: sysslor-*-linux-musl
           path: ${{ runner.temp }}/artifacts
@@ -337,13 +337,13 @@ jobs:
       IMAGE: ghcr.io/sebastianljunggren/sysslor
       PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Laid out by Docker arch name so the Dockerfile can use TARGETARCH.
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: sysslor-x86_64-linux-musl
           path: dist/amd64
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: sysslor-aarch64-linux-musl
           path: dist/arm64
@@ -373,9 +373,9 @@ jobs:
             fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       # Only the runner's arch, because the docker daemon can't load a multi-platform image.
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           platforms: linux/amd64
@@ -402,14 +402,14 @@ jobs:
           docker logs sysslor
           exit 1
       - if: env.PUBLISH == 'true'
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The Dockerfile only copies files, so both platforms build here without emulation.
       # On PRs this only checks that the arm64 image builds as well.
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
