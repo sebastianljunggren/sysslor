@@ -83,14 +83,19 @@ export const deleteCompletion = (id: string) => request<void>('DELETE', `/comple
 /**
  * Calls `onChange` with the affected project (or `null` for "refetch everything")
  * whenever data changes on the server. Also fires on every (re)connect, since events
- * sent while disconnected are lost. Returns a function that closes the stream.
+ * sent while disconnected are lost. The stream is closed while the page is hidden and
+ * reopened when it is shown. Returns a function that closes the stream.
  */
 export function subscribe(
   onChange: (project: number | null) => void,
   onConnection: (connected: boolean) => void,
 ): () => void {
-  let source: EventSource;
+  let source: EventSource | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
+  const close = () => {
+    clearTimeout(retry);
+    source?.close();
+  };
   const open = () => {
     source = new EventSource('/api/events');
     source.onopen = () => {
@@ -101,7 +106,7 @@ export function subscribe(
       onConnection(false);
       // EventSource retries network errors by itself, but gives up for good on an
       // error status: a 401 (logged out) or a 502 from the ingress during a deploy.
-      if (source.readyState !== EventSource.CLOSED) return;
+      if (source?.readyState !== EventSource.CLOSED) return;
       // A refetch surfaces the reason, e.g. by showing the login form.
       onChange(null);
       retry = setTimeout(open, 5000);
@@ -111,10 +116,18 @@ export function subscribe(
       onChange(event.project);
     };
   };
-  open();
+  // Background tabs and locked phones drop the connection and throttle the timers
+  // that would reconnect it, so the page would show a stale "no connection" when
+  // it is shown again. Changes made meanwhile are picked up by the refetch on open.
+  const onVisibilityChange = () => {
+    close();
+    if (document.visibilityState === 'visible') open();
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  if (document.visibilityState !== 'hidden') open();
   return () => {
-    clearTimeout(retry);
-    source.close();
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    close();
   };
 }
 

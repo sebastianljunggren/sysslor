@@ -97,6 +97,12 @@ class FakeEventSource {
 describe('subscribe', () => {
   let onChange: ReturnType<typeof vi.fn<(project: number | null) => void>>;
   let onConnection: ReturnType<typeof vi.fn<(connected: boolean) => void>>;
+  let unsubscribe = () => {};
+
+  const setVisibility = (state: DocumentVisibilityState) => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(state);
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -107,11 +113,13 @@ describe('subscribe', () => {
   });
 
   afterEach(() => {
+    unsubscribe();
+    vi.restoreAllMocks();
     vi.clearAllTimers();
   });
 
   it('refetches everything on connect, then the project in each event', () => {
-    subscribe(onChange, onConnection);
+    unsubscribe = subscribe(onChange, onConnection);
     const [source] = FakeEventSource.instances;
     expect(source.url).toBe('/api/events');
 
@@ -123,7 +131,7 @@ describe('subscribe', () => {
   });
 
   it('leaves transient errors to the browser to retry', () => {
-    subscribe(onChange, onConnection);
+    unsubscribe = subscribe(onChange, onConnection);
     FakeEventSource.instances[0].onerror?.();
     vi.advanceTimersByTime(10_000);
 
@@ -133,7 +141,7 @@ describe('subscribe', () => {
   });
 
   it('reopens a stream the browser gave up on', () => {
-    subscribe(onChange, onConnection);
+    unsubscribe = subscribe(onChange, onConnection);
     const [source] = FakeEventSource.instances;
     source.close();
     source.onerror?.();
@@ -144,13 +152,69 @@ describe('subscribe', () => {
   });
 
   it('stops retrying once unsubscribed', () => {
-    const unsubscribe = subscribe(onChange, onConnection);
+    unsubscribe = subscribe(onChange, onConnection);
     const [source] = FakeEventSource.instances;
     source.close();
     source.onerror?.();
     unsubscribe();
 
     vi.advanceTimersByTime(5000);
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  it('closes the stream while the page is hidden', () => {
+    unsubscribe = subscribe(onChange, onConnection);
+    const [source] = FakeEventSource.instances;
+
+    setVisibility('hidden');
+    vi.advanceTimersByTime(10_000);
+
+    expect(source.readyState).toBe(FakeEventSource.CLOSED);
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(onConnection).not.toHaveBeenCalled();
+  });
+
+  it('reopens the stream and refetches when the page is shown again', () => {
+    unsubscribe = subscribe(onChange, onConnection);
+    setVisibility('hidden');
+
+    setVisibility('visible');
+    expect(FakeEventSource.instances).toHaveLength(2);
+    FakeEventSource.instances[1].onopen?.();
+
+    expect(onConnection).toHaveBeenCalledWith(true);
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
+  it('does not retry a given-up stream while the page is hidden', () => {
+    unsubscribe = subscribe(onChange, onConnection);
+    const [source] = FakeEventSource.instances;
+    source.close();
+    source.onerror?.();
+
+    setVisibility('hidden');
+    vi.advanceTimersByTime(10_000);
+    expect(FakeEventSource.instances).toHaveLength(1);
+
+    setVisibility('visible');
+    expect(FakeEventSource.instances).toHaveLength(2);
+  });
+
+  it('waits for a page opened in the background to be shown', () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    unsubscribe = subscribe(onChange, onConnection);
+    expect(FakeEventSource.instances).toHaveLength(0);
+
+    setVisibility('visible');
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  it('ignores the page being shown once unsubscribed', () => {
+    subscribe(onChange, onConnection)();
+
+    setVisibility('hidden');
+    setVisibility('visible');
+
     expect(FakeEventSource.instances).toHaveLength(1);
   });
 });
