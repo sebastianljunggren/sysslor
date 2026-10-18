@@ -152,6 +152,31 @@
     background: var(--surface);
   }
 
+  /* The native arrow sits flush against the right border whatever the padding, so draw a
+     chevron in the text color instead. */
+  :global(select) {
+    appearance: none;
+    padding-right: 2rem;
+    background-image:
+      linear-gradient(
+        to top right,
+        transparent calc(50% - 0.75px),
+        currentColor calc(50% - 0.75px) calc(50% + 0.75px),
+        transparent calc(50% + 0.75px)
+      ),
+      linear-gradient(
+        to top left,
+        transparent calc(50% - 0.75px),
+        currentColor calc(50% - 0.75px) calc(50% + 0.75px),
+        transparent calc(50% + 0.75px)
+      );
+    background-position:
+      right 1.05rem center,
+      right 0.75rem center;
+    background-size: 0.3rem 0.3rem;
+    background-repeat: no-repeat;
+  }
+
   :global(.muted) {
     color: var(--muted);
   }
