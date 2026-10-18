@@ -13,7 +13,7 @@
 
   const groupsById = $derived(new Map(view.groups.map((g) => [g.id, g])));
   const hasUngrouped = $derived(view.tasks.some((t) => t.group_id === null));
-  // Falls back to all tasks if the stored group is gone, or its chip isn't shown.
+  // Falls back to all tasks if the stored group is gone, or its option isn't offered.
   const filter = $derived.by((): GroupFilter => {
     const stored = data.groupFilter;
     if (view.groups.length === 0) return null;
@@ -73,20 +73,14 @@
 {/if}
 
 {#if view.groups.length > 0 && view.tasks.length > 0}
-  <fieldset class="chips">
-    <legend>{m.groups()}</legend>
-    {#each filterOptions as option (option.value)}
-      <label class:selected={option.value === filter}>
-        <input
-          type="radio"
-          name="group"
-          checked={option.value === filter}
-          onchange={() => pickGroupFilter(option.value)}
-        />
-        {option.label}
-      </label>
-    {/each}
-  </fieldset>
+  <label class="filter">
+    {m.groups()}
+    <select bind:value={() => filter, (v) => pickGroupFilter(v)}>
+      {#each filterOptions as option (option.value)}
+        <option value={option.value}>{option.label}</option>
+      {/each}
+    </select>
+  </label>
 {/if}
 
 {#if view.tasks.length === 0}
@@ -124,43 +118,16 @@
 {/if}
 
 <style>
-  .chips {
+  .filter {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
     margin: 0 0 1rem;
-    padding: 0;
-    border: none;
-  }
-
-  .chips legend {
-    margin-bottom: 0.5rem;
     color: var(--muted);
   }
 
-  .chips label {
-    padding: 0.4rem 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--surface);
-    cursor: pointer;
-  }
-
-  .chips label.selected {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-fg);
-  }
-
-  .chips label:has(input:focus-visible) {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .chips input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+  .filter select {
+    color: var(--fg);
   }
 
   ul {

@@ -48,7 +48,7 @@ describe('MainView', () => {
     it('shows all tasks in server order with their groups', () => {
       render(MainView, { view: projectView(), executors });
 
-      expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+      expect(screen.getByRole('combobox', { name: 'Groups' })).toHaveDisplayValue('All');
       expect(taskNames()).toEqual(['Dishes', 'Towels', 'Plants', 'Fridge']);
       expect(screen.getAllByText('Kitchen', { selector: '.group' })).toHaveLength(2);
     });
@@ -57,7 +57,7 @@ describe('MainView', () => {
       const user = userEvent.setup();
       render(MainView, { view: projectView(), executors });
 
-      await user.click(screen.getByRole('radio', { name: 'Kitchen' }));
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Groups' }), 'Kitchen');
 
       expect(taskNames()).toEqual(['Dishes', 'Fridge']);
       expect(screen.queryByText('Kitchen', { selector: '.group' })).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('MainView', () => {
       const user = userEvent.setup();
       render(MainView, { view: projectView(), executors });
 
-      await user.click(screen.getByRole('radio', { name: 'No group' }));
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Groups' }), 'No group');
 
       expect(taskNames()).toEqual(['Plants']);
     });
@@ -77,7 +77,7 @@ describe('MainView', () => {
       data.groupFilter = 99;
       render(MainView, { view: projectView(), executors });
 
-      expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+      expect(screen.getByRole('combobox', { name: 'Groups' })).toHaveDisplayValue('All');
       expect(taskNames()).toHaveLength(4);
     });
 
@@ -87,13 +87,13 @@ describe('MainView', () => {
       view.tasks = view.tasks.filter((t) => t.group_id !== null);
       render(MainView, { view, executors });
 
-      expect(screen.queryByRole('radio', { name: 'No group' })).not.toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+      expect(screen.queryByRole('option', { name: 'No group' })).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Groups' })).toHaveDisplayValue('All');
     });
 
     it('hides the filter without groups', () => {
       render(MainView, { view: projectView({ groups: [] }), executors });
-      expect(screen.queryByRole('radio', { name: 'All' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Groups' })).not.toBeInTheDocument();
     });
   });
 
