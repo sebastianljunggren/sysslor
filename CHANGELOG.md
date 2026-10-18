@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/sebastianljunggren/sysslor/compare/v0.4.0...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* filter groups with a select ([#53](https://github.com/sebastianljunggren/sysslor/issues/53)) ([eff4526](https://github.com/sebastianljunggren/sysslor/commit/eff4526d6781e4bb9247a6732cb6b6c71bef212a))
+
+
+### Bug Fixes
+
+* close the event stream while the page is hidden ([#54](https://github.com/sebastianljunggren/sysslor/issues/54)) ([e55d6f2](https://github.com/sebastianljunggren/sysslor/commit/e55d6f2fcf9cff852cf81cfd16f6b715f6994340))
+
 ## [0.4.0](https://github.com/sebastianljunggren/sysslor/compare/v0.3.0...v0.4.0) (2026-10-11)
 
 
