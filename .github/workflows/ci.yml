@@ -146,6 +146,11 @@ jobs:
           name: sysslor-demo
           path: demo-bin
       - run: chmod +x demo-bin/sysslor-demo
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          # No node-version: the Playwright image's Node is used, this only caches ~/.npm.
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - run: npm --prefix web ci
       # Only rewrites screenshots that no longer match, so identical renders leave no diff.
       - run: npm --prefix web run screenshots -- --update-snapshots=changed
