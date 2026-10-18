@@ -69,19 +69,20 @@ const fn demo_task(
 }
 
 // Listed in the order they are sorted. Only the first two are overdue, and the top six mix
-// groups, priorities, cadences and due dates so a screenshot shows the variety. The range
-// hood filter is the only never-completed task and the only priority 5, so it is always on
-// top. Executors rotate by index, so the people who did the top tasks differ too.
+// groups, cadences and due dates so a screenshot shows the variety. The range hood filter
+// is the only never-completed task, so it is always on top. Vacuum is the only task with a
+// priority; it is not overdue, so the priority does not move it. Executors rotate by index,
+// so the people who did the top tasks differ too.
 const TASKS: [DemoTask; 13] = [
-    demo_task("Clean range hood filter", Some(0), weeks(4), 5, None),
-    demo_task("Change bed sheets", Some(3), weeks(2), 1, Some(15)),
-    demo_task("Vacuum", Some(2), weeks(1), 2, Some(6)),
-    demo_task("Scrub shower", Some(1), weeks(2), 1, Some(11)),
+    demo_task("Clean range hood filter", Some(0), weeks(4), 0, None),
+    demo_task("Change bed sheets", Some(3), weeks(2), 0, Some(15)),
+    demo_task("Vacuum", Some(2), weeks(1), 3, Some(6)),
+    demo_task("Scrub shower", Some(1), weeks(2), 0, Some(11)),
     demo_task("Wipe counters", Some(0), days(3), 0, Some(2)),
     demo_task("Take out recycling", None, weeks(1), 0, Some(4)),
-    demo_task("Water plants", Some(2), days(4), 1, Some(2)),
-    demo_task("Clean toilet", Some(1), weeks(1), 3, Some(3)),
+    demo_task("Water plants", Some(2), days(4), 0, Some(2)),
     demo_task("Clean fridge", Some(0), weeks(2), 0, Some(6)),
+    demo_task("Clean toilet", Some(1), weeks(1), 0, Some(3)),
     demo_task("Air out duvets", Some(3), weeks(8), 0, Some(20)),
     demo_task("Wash bath mats", Some(1), weeks(2), 0, Some(5)),
     demo_task("Descale kettle", Some(0), weeks(4), 0, Some(3)),
