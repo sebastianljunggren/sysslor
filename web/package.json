@@ -12,7 +12,7 @@
     "screenshots": "playwright test"
   },
   "devDependencies": {
-    "@inlang/paraglide-js": "2.28.0",
+    "@inlang/paraglide-js": "2.29.0",
     "@playwright/test": "1.64.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@testing-library/jest-dom": "7.0.1",
