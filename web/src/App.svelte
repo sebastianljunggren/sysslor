@@ -1,23 +1,51 @@
 <script lang="ts">
   import LoginView from './components/LoginView.svelte';
   import MainView from './components/MainView.svelte';
-  import ManageView, { manageTabs, type ManageTab } from './components/ManageView.svelte';
+  import ManageView from './components/ManageView.svelte';
+  import Nav from './components/Nav.svelte';
   import { connect, data, refreshAll } from './lib/data.svelte';
   import { m } from './lib/paraglide/messages.js';
+  import { pageFromHash, pageLabel } from './lib/route';
 
-  // The hash keeps the manage view reachable with the back button without a router.
   let hash = $state(location.hash);
-  const managing = $derived(hash === '#manage' || hash.startsWith('#manage/'));
-  // `#manage` alone, or a tab that no longer exists, opens the chores tab.
-  const manageTab = $derived.by((): ManageTab => {
-    const tab = hash.slice('#manage/'.length);
-    return manageTabs.find((t) => t === tab) ?? 'chores';
-  });
+  const page = $derived(pageFromHash(hash));
+  const projectName = $derived(data.view?.project.name ?? 'Sysslor');
+
+  let drawer = $state<HTMLDialogElement>();
+  let drawerOpen = $state(false);
+
+  function openDrawer() {
+    drawer?.showModal();
+    drawerOpen = true;
+  }
+
+  function closeDrawer() {
+    drawer?.close();
+  }
+
+  // Clicks on the backdrop target the dialog itself; clicks on its content target children.
+  function closeOnBackdrop(event: MouseEvent) {
+    if (event.target === drawer) closeDrawer();
+  }
 
   $effect(() => {
-    const onHashChange = () => (hash = location.hash);
+    const onHashChange = () => {
+      hash = location.hash;
+      // The back button doesn't go through the menu's links.
+      closeDrawer();
+    };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
+  });
+
+  // An open modal keeps the page inert, also after the window grows past the breakpoint
+  // where the menu button disappears.
+  $effect(() => {
+    const wide = window.matchMedia?.('(min-width: 52rem)');
+    if (!wide) return;
+    const onChange = () => wide.matches && closeDrawer();
+    wide.addEventListener('change', onChange);
+    return () => wide.removeEventListener('change', onChange);
   });
 
   $effect(() => {
@@ -28,45 +56,74 @@
   });
 </script>
 
-<main>
-  <header>
-    <h1>{data.view?.project.name ?? 'Sysslor'}</h1>
-    {#if data.loggedIn}
-      {#if managing}
-        <a class="button" href="#/">{m.done()}</a>
-      {:else}
-        <a class="button" href="#manage">{m.manage()}</a>
-      {/if}
-    {/if}
-  </header>
-
-  {#if !data.loggedIn}
+{#if !data.loggedIn}
+  <main>
+    <header>
+      <h1>{projectName}</h1>
+    </header>
     <LoginView />
-  {:else}
-    {#if !data.connected || data.loadError}
-      <p class="banner" role="status">
-        {data.loadError ?? m.no_connection()} {m.retrying()}
-      </p>
-    {/if}
+  </main>
+{:else}
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="project">{projectName}</p>
+      <Nav {page} />
+    </aside>
 
-    {#if data.actionError}
-      <p class="banner error" role="alert">
-        {data.actionError}
-        <button class="link" onclick={() => (data.actionError = null)}>{m.dismiss()}</button>
-      </p>
-    {/if}
+    <dialog
+      class="drawer"
+      id="menu"
+      aria-label={m.menu()}
+      bind:this={drawer}
+      onclose={() => (drawerOpen = false)}
+      onclick={closeOnBackdrop}
+    >
+      <div class="drawer-header">
+        <p class="project">{projectName}</p>
+        <button class="icon-button" aria-label={m.close_menu()} onclick={closeDrawer}>
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <Nav {page} onnavigate={closeDrawer} />
+    </dialog>
 
-    {#if data.view === null}
-      {#if !data.loadError}
-        <p class="muted">{m.loading()}</p>
+    <main>
+      <header>
+        <button class="icon-button menu-button" aria-label={m.menu()} aria-controls="menu" aria-expanded={drawerOpen} onclick={openDrawer}>
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <h1>{page === 'tasks' ? projectName : pageLabel(page)}</h1>
+      </header>
+
+      {#if !data.connected || data.loadError}
+        <p class="banner" role="status">
+          {data.loadError ?? m.no_connection()} {m.retrying()}
+        </p>
       {/if}
-    {:else if managing}
-      <ManageView view={data.view} executors={data.executors} tab={manageTab} />
-    {:else}
-      <MainView view={data.view} executors={data.executors} />
-    {/if}
-  {/if}
-</main>
+
+      {#if data.actionError}
+        <p class="banner error" role="alert">
+          {data.actionError}
+          <button class="link" onclick={() => (data.actionError = null)}>{m.dismiss()}</button>
+        </p>
+      {/if}
+
+      {#if data.view === null}
+        {#if !data.loadError}
+          <p class="muted">{m.loading()}</p>
+        {/if}
+      {:else if page === 'tasks'}
+        <MainView view={data.view} executors={data.executors} />
+      {:else}
+        <ManageView view={data.view} executors={data.executors} tab={page} />
+      {/if}
+    </main>
+  </div>
+{/if}
 
 <style>
   :global(:root) {
@@ -196,8 +253,108 @@
   header {
     display: flex;
     align-items: center;
+    gap: 0.75rem;
+  }
+
+  .project {
+    margin: 0 0 0.5rem;
+    padding: 0 calc(0.75rem + 2px);
+    font-weight: bold;
+    overflow-wrap: anywhere;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .icon-button {
+    display: flex;
+    padding: 0.4rem;
+    border: none;
+    background: none;
+  }
+
+  .menu-button {
+    margin-left: -0.4rem;
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .drawer-header .project {
+    margin: 0;
+  }
+
+  .drawer {
+    width: min(16rem, 80vw);
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 1rem 0.5rem;
+    border: none;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg);
+    transform: translateX(-100%);
+    transition:
+      transform 0.2s ease-out,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+
+  .drawer[open] {
+    transform: none;
+  }
+
+  @starting-style {
+    .drawer[open] {
+      transform: translateX(-100%);
+    }
+  }
+
+  .drawer::backdrop {
+    background: color-mix(in srgb, var(--base03) 40%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drawer {
+      transition: none;
+    }
+  }
+
+  /* Room for the menu next to a full-width page. */
+  @media (min-width: 52rem) {
+    .layout {
+      display: grid;
+      grid-template-columns: 13rem 1fr;
+      min-height: 100dvh;
+    }
+
+    .sidebar {
+      display: block;
+      position: sticky;
+      top: 0;
+      height: 100dvh;
+      box-sizing: border-box;
+      padding: 1.5rem 0.5rem;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      overflow-y: auto;
+    }
+
+    .menu-button {
+      display: none;
+    }
+
+    main {
+      width: 100%;
+      box-sizing: border-box;
+    }
   }
 
   h1 {

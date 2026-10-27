@@ -13,8 +13,6 @@ describe('ManageView', () => {
   it('shows only the selected tab', () => {
     render(ManageView, { view: projectView(), executors, tab: 'chores' });
 
-    expect(screen.getByRole('link', { name: 'Chores', current: 'page' })).toHaveAttribute('href', '#manage');
-    expect(screen.getByRole('link', { name: 'People' })).toHaveAttribute('href', '#manage/people');
     expect(screen.getByRole('searchbox', { name: 'Search chores' })).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Anna')).not.toBeInTheDocument();
   });
@@ -22,7 +20,6 @@ describe('ManageView', () => {
   it('lists people on the people tab', () => {
     render(ManageView, { view: projectView(), executors, tab: 'people' });
 
-    expect(screen.getByRole('link', { name: 'People', current: 'page' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('Anna')).toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
   });

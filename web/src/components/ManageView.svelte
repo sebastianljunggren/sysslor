@@ -1,8 +1,3 @@
-<script lang="ts" module>
-  export const manageTabs = ['chores', 'groups', 'people', 'settings'] as const;
-  export type ManageTab = (typeof manageTabs)[number];
-</script>
-
 <script lang="ts">
   import { slide } from 'svelte/transition';
   import type { Executor } from '../lib/api/Executor';
@@ -25,17 +20,11 @@
   import { logOut, mutate } from '../lib/data.svelte';
   import { formatCadence, formatColor, groupColors } from '../lib/format';
   import { m } from '../lib/paraglide/messages.js';
+  import type { Page } from '../lib/route';
   import { getLocale, locales, setLocale, type Locale } from '../lib/paraglide/runtime.js';
   import TaskForm from './TaskForm.svelte';
 
-  let { view, executors, tab }: { view: ProjectView; executors: Executor[]; tab: ManageTab } = $props();
-
-  const tabLabels: Record<ManageTab, () => string> = {
-    chores: m.chores,
-    groups: m.groups,
-    people: m.people,
-    settings: m.settings,
-  };
+  let { view, executors, tab }: { view: ProjectView; executors: Executor[]; tab: Exclude<Page, 'tasks'> } = $props();
 
   // Each language in its own name, so it can be found whatever the current locale is.
   const languageNames: Record<Locale, string> = { en: 'English', sv: 'Svenska' };
@@ -130,12 +119,6 @@
     if (await mutate(() => renameExecutor(executor.id, { name }))) delete drafts[executor.id];
   }
 </script>
-
-<nav aria-label={m.manage()}>
-  {#each manageTabs as t (t)}
-    <a href={t === 'chores' ? '#manage' : `#manage/${t}`} aria-current={t === tab ? 'page' : undefined}>{tabLabels[t]()}</a>
-  {/each}
-</nav>
 
 {#if tab === 'chores'}
   <section>
@@ -297,26 +280,6 @@
 {/snippet}
 
 <style>
-  nav {
-    display: flex;
-    gap: 0.25rem;
-    margin-bottom: 1rem;
-    overflow-x: auto;
-  }
-
-  nav a {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 2px solid transparent;
-    color: var(--muted);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  nav a[aria-current='page'] {
-    border-bottom-color: var(--accent);
-    color: var(--fg);
-  }
-
   section {
     margin-bottom: 2rem;
   }
