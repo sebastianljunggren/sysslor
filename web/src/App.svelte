@@ -1,5 +1,5 @@
 <script lang="ts">
-  import EditView from './components/EditView.svelte';
+  import EditView, { editTabs, type EditTab } from './components/EditView.svelte';
   import LoginView from './components/LoginView.svelte';
   import MainView from './components/MainView.svelte';
   import { connect, data, refreshAll } from './lib/data.svelte';
@@ -7,6 +7,12 @@
 
   // The hash keeps the edit view reachable with the back button without a router.
   let hash = $state(location.hash);
+  const editing = $derived(hash === '#edit' || hash.startsWith('#edit/'));
+  // `#edit` alone, or a tab that no longer exists, opens the chores tab.
+  const editTab = $derived.by((): EditTab => {
+    const tab = hash.slice('#edit/'.length);
+    return editTabs.find((t) => t === tab) ?? 'chores';
+  });
 
   $effect(() => {
     const onHashChange = () => (hash = location.hash);
@@ -26,7 +32,7 @@
   <header>
     <h1>{data.view?.project.name ?? 'Sysslor'}</h1>
     {#if data.loggedIn}
-      {#if hash === '#edit'}
+      {#if editing}
         <a class="button" href="#/">{m.done()}</a>
       {:else}
         <a class="button" href="#edit">{m.edit()}</a>
@@ -54,8 +60,8 @@
       {#if !data.loadError}
         <p class="muted">{m.loading()}</p>
       {/if}
-    {:else if hash === '#edit'}
-      <EditView view={data.view} executors={data.executors} />
+    {:else if editing}
+      <EditView view={data.view} executors={data.executors} tab={editTab} />
     {:else}
       <MainView view={data.view} executors={data.executors} />
     {/if}

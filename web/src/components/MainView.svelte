@@ -69,7 +69,7 @@
 </script>
 
 {#if executors.length === 0}
-  <p class="muted">{m.no_people()} <a href="#edit">{m.add_people()}</a></p>
+  <p class="muted">{m.no_people()} <a href="#edit/people">{m.add_people()}</a></p>
 {/if}
 
 {#if view.groups.length > 0 && view.tasks.length > 0}

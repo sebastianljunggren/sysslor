@@ -1,4 +1,10 @@
+<script lang="ts" module>
+  export const editTabs = ['chores', 'groups', 'people', 'settings'] as const;
+  export type EditTab = (typeof editTabs)[number];
+</script>
+
 <script lang="ts">
+  import { slide } from 'svelte/transition';
   import type { Executor } from '../lib/api/Executor';
   import type { Group } from '../lib/api/Group';
   import type { GroupColor } from '../lib/api/GroupColor';
@@ -22,7 +28,14 @@
   import { getLocale, locales, setLocale, type Locale } from '../lib/paraglide/runtime.js';
   import TaskForm from './TaskForm.svelte';
 
-  let { view, executors }: { view: ProjectView; executors: Executor[] } = $props();
+  let { view, executors, tab }: { view: ProjectView; executors: Executor[]; tab: EditTab } = $props();
+
+  const tabLabels: Record<EditTab, () => string> = {
+    chores: m.chores,
+    groups: m.groups,
+    people: m.people,
+    settings: m.settings,
+  };
 
   // Each language in its own name, so it can be found whatever the current locale is.
   const languageNames: Record<Locale, string> = { en: 'English', sv: 'Svenska' };
@@ -30,6 +43,10 @@
   // Absent means unchanged, so a rename from another device shows up.
   let projectDraft = $state<string | undefined>();
   let editingTask = $state<number | null>(null);
+  // Open from the start when there is nothing else to do here.
+  // svelte-ignore state_referenced_locally
+  let addingTask = $state(view.tasks.length === 0);
+  let query = $state('');
   let newExecutor = $state('');
   // Rename drafts by executor id; absent means unchanged.
   let drafts = $state<Record<number, string>>({});
@@ -38,11 +55,26 @@
   // Rename drafts by group id; absent means unchanged.
   let groupDrafts = $state<Record<number, string>>({});
 
-  const groupNames = $derived(new Map(view.groups.map((g) => [g.id, g.name])));
   const usedGroups = $derived(new Set(view.tasks.map((t) => t.group_id)));
 
   // Alphabetical, so the list doesn't jump around while tasks are edited.
   const tasks = $derived(view.tasks.toSorted((a, b) => a.name.localeCompare(b.name, getLocale())));
+  // Chores under their group's heading, ungrouped last. Without groups there is one
+  // untitled section. Sections the search leaves empty are dropped.
+  const sections = $derived.by(() => {
+    const needle = query.trim().toLocaleLowerCase(getLocale());
+    const matching = tasks.filter((t) => t.name.toLocaleLowerCase(getLocale()).includes(needle));
+    const all = [
+      ...view.groups.map((g) => ({ key: `${g.id}`, title: g.name, color: g.color, tasks: matching.filter((t) => t.group_id === g.id) })),
+      {
+        key: 'none',
+        title: view.groups.length > 0 ? m.no_group() : null,
+        color: null,
+        tasks: matching.filter((t) => t.group_id === null),
+      },
+    ];
+    return all.filter((s) => s.tasks.length > 0);
+  });
 
   async function saveProjectName(event: SubmitEvent) {
     event.preventDefault();
@@ -99,63 +131,161 @@
   }
 </script>
 
-<section>
-  <h2>{m.project_name()}</h2>
-  <form class="row" onsubmit={saveProjectName}>
-    <input
-      class="grow"
-      aria-label={m.project_name()}
-      value={projectDraft ?? view.project.name}
-      oninput={(e) => (projectDraft = e.currentTarget.value)}
-      required
-      maxlength="200"
-    />
-    {#if projectDraft !== undefined && projectDraft !== view.project.name}
-      <button type="submit" class="primary">{m.save()}</button>
-      <button type="button" onclick={() => (projectDraft = undefined)}>{m.cancel()}</button>
-    {/if}
-  </form>
-</section>
+<nav aria-label={m.edit()}>
+  {#each editTabs as t (t)}
+    <a href={t === 'chores' ? '#edit' : `#edit/${t}`} aria-current={t === tab ? 'page' : undefined}>{tabLabels[t]()}</a>
+  {/each}
+</nav>
 
-<section>
-  <h2>{m.groups()}</h2>
-  <ul>
-    {#each view.groups as group (group.id)}
-      {@const inUse = usedGroups.has(group.id)}
-      <li>
-        <form class="row" onsubmit={(e) => saveGroupName(e, group)}>
-          <input
-            class="grow"
-            aria-label={m.name()}
-            value={groupDrafts[group.id] ?? group.name}
-            oninput={(e) => (groupDrafts[group.id] = e.currentTarget.value)}
-            required
-            maxlength="200"
-          />
-          {@render colorSelect(group.color, (color) => saveGroupColor(group, color))}
-          {#if groupDrafts[group.id] !== undefined && groupDrafts[group.id] !== group.name}
-            <button type="submit" class="primary">{m.save()}</button>
-            <button type="button" onclick={() => delete groupDrafts[group.id]}>{m.cancel()}</button>
-          {:else}
-            <!-- An empty group holds nothing, so it is removed without confirmation. -->
-            <button
-              type="button"
-              class="danger"
-              disabled={inUse}
-              title={inUse ? m.group_has_chores() : undefined}
-              onclick={() => mutate(() => deleteGroup(group.id))}>{m.remove()}</button
-            >
-          {/if}
-        </form>
-      </li>
+{#if tab === 'chores'}
+  <section>
+    <div class="row toolbar">
+      <input class="grow" type="search" bind:value={query} aria-label={m.search_chores()} placeholder={m.search_chores()} />
+      <button class:primary={!addingTask} aria-expanded={addingTask} onclick={() => (addingTask = !addingTask)}>{m.new_chore()}</button>
+    </div>
+    {#if addingTask}
+      <div class="new" transition:slide={{ duration: 200 }}>
+        <TaskForm groups={view.groups} submitLabel={m.add()} onsubmit={addTask} />
+      </div>
+    {/if}
+    {#if view.tasks.length > 0 && sections.length === 0}
+      <p class="muted">{m.no_matching_chores()}</p>
+    {/if}
+    {#each sections as section (section.key)}
+      {#if section.title !== null}
+        <h3 style:--group-color={section.color ? `var(--${section.color})` : undefined}>
+          {section.title}
+        </h3>
+      {/if}
+      <ul>
+        {#each section.tasks as task (task.id)}
+          <li>
+            {#if editingTask === task.id}
+              <TaskForm
+                initial={{ name: task.name, cadence: task.cadence, priority: task.priority, group_id: task.group_id }}
+                groups={view.groups}
+                submitLabel={m.save()}
+                onsubmit={(input) => saveTask(task.id, input)}
+                oncancel={() => (editingTask = null)}
+              />
+            {:else}
+              <div class="row">
+                <span class="grow">
+                  <strong>{task.name}</strong>
+                  <span class="muted">
+                    · {formatCadence(task.cadence)}{task.priority > 0 ? ` · ${m.priority_value({ priority: task.priority })}` : ''}
+                  </span>
+                </span>
+                <button onclick={() => (editingTask = task.id)}>{m.edit()}</button>
+                <button class="danger" onclick={() => archive(task)}>{m.remove()}</button>
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
     {/each}
-  </ul>
-  <form class="row" onsubmit={addGroup}>
-    <input class="grow" bind:value={newGroup} placeholder={m.name()} required maxlength="200" />
-    {@render colorSelect(newGroupColor, (color) => (newGroupColor = color))}
-    <button type="submit" class="primary">{m.add()}</button>
-  </form>
-</section>
+  </section>
+{:else if tab === 'groups'}
+  <section>
+    <ul>
+      {#each view.groups as group (group.id)}
+        {@const inUse = usedGroups.has(group.id)}
+        <li>
+          <form class="row" onsubmit={(e) => saveGroupName(e, group)}>
+            <input
+              class="grow"
+              aria-label={m.name()}
+              value={groupDrafts[group.id] ?? group.name}
+              oninput={(e) => (groupDrafts[group.id] = e.currentTarget.value)}
+              required
+              maxlength="200"
+            />
+            {@render colorSelect(group.color, (color) => saveGroupColor(group, color))}
+            {#if groupDrafts[group.id] !== undefined && groupDrafts[group.id] !== group.name}
+              <button type="submit" class="primary">{m.save()}</button>
+              <button type="button" onclick={() => delete groupDrafts[group.id]}>{m.cancel()}</button>
+            {:else}
+              <!-- An empty group holds nothing, so it is removed without confirmation. -->
+              <button
+                type="button"
+                class="danger"
+                disabled={inUse}
+                title={inUse ? m.group_has_chores() : undefined}
+                onclick={() => mutate(() => deleteGroup(group.id))}>{m.remove()}</button
+              >
+            {/if}
+          </form>
+        </li>
+      {/each}
+    </ul>
+    <form class="row" onsubmit={addGroup}>
+      <input class="grow" bind:value={newGroup} placeholder={m.name()} required maxlength="200" />
+      {@render colorSelect(newGroupColor, (color) => (newGroupColor = color))}
+      <button type="submit" class="primary">{m.add()}</button>
+    </form>
+  </section>
+{:else if tab === 'people'}
+  <section>
+    <ul>
+      {#each executors as executor (executor.id)}
+        <li>
+          <form class="row" onsubmit={(e) => rename(e, executor)}>
+            <input
+              class="grow"
+              aria-label={m.name()}
+              value={drafts[executor.id] ?? executor.name}
+              oninput={(e) => (drafts[executor.id] = e.currentTarget.value)}
+              required
+              maxlength="200"
+            />
+            {#if drafts[executor.id] !== undefined && drafts[executor.id] !== executor.name}
+              <button type="submit" class="primary">{m.save()}</button>
+              <button type="button" onclick={() => delete drafts[executor.id]}>{m.cancel()}</button>
+            {/if}
+          </form>
+        </li>
+      {/each}
+    </ul>
+    <form class="row" onsubmit={addExecutor}>
+      <input class="grow" bind:value={newExecutor} placeholder={m.name()} required maxlength="200" />
+      <button type="submit" class="primary">{m.add()}</button>
+    </form>
+  </section>
+{:else}
+  <section>
+    <h2>{m.project_name()}</h2>
+    <form class="row" onsubmit={saveProjectName}>
+      <input
+        class="grow"
+        aria-label={m.project_name()}
+        value={projectDraft ?? view.project.name}
+        oninput={(e) => (projectDraft = e.currentTarget.value)}
+        required
+        maxlength="200"
+      />
+      {#if projectDraft !== undefined && projectDraft !== view.project.name}
+        <button type="submit" class="primary">{m.save()}</button>
+        <button type="button" onclick={() => (projectDraft = undefined)}>{m.cancel()}</button>
+      {/if}
+    </form>
+  </section>
+
+  <section>
+    <h2>{m.this_device()}</h2>
+    <div class="row">
+      <label class="row">
+        {m.language()}
+        <!-- Reloads the page, so nothing needs to react to the change. -->
+        <select value={getLocale()} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+          {#each locales as locale (locale)}
+            <option value={locale}>{languageNames[locale]}</option>
+          {/each}
+        </select>
+      </label>
+      <button onclick={logOut}>{m.log_out()}</button>
+    </div>
+  </section>
+{/if}
 
 {#snippet colorSelect(value: GroupColor | null, onpick: (color: GroupColor | null) => void)}
   <select aria-label={m.color()} {value} onchange={(e) => onpick((e.currentTarget.value || null) as GroupColor | null)}>
@@ -166,86 +296,49 @@
   </select>
 {/snippet}
 
-<section>
-  <h2>{m.chores()}</h2>
-  <ul>
-    {#each tasks as task (task.id)}
-      <li>
-        {#if editingTask === task.id}
-          <TaskForm
-            initial={{ name: task.name, cadence: task.cadence, priority: task.priority, group_id: task.group_id }}
-            groups={view.groups}
-            submitLabel={m.save()}
-            onsubmit={(input) => saveTask(task.id, input)}
-            oncancel={() => (editingTask = null)}
-          />
-        {:else}
-          <div class="row">
-            <span class="grow">
-              <strong>{task.name}</strong>
-              <span class="muted">
-                {#if task.group_id !== null}· {groupNames.get(task.group_id)}{/if}
-                · {formatCadence(task.cadence)}{task.priority > 0 ? ` · ${m.priority_value({ priority: task.priority })}` : ''}
-              </span>
-            </span>
-            <button onclick={() => (editingTask = task.id)}>{m.edit()}</button>
-            <button class="danger" onclick={() => archive(task)}>{m.remove()}</button>
-          </div>
-        {/if}
-      </li>
-    {/each}
-  </ul>
-  <h3>{m.new_chore()}</h3>
-  <TaskForm groups={view.groups} submitLabel={m.add()} onsubmit={addTask} />
-</section>
-
-<section>
-  <h2>{m.people()}</h2>
-  <ul>
-    {#each executors as executor (executor.id)}
-      <li>
-        <form class="row" onsubmit={(e) => rename(e, executor)}>
-          <input
-            class="grow"
-            aria-label={m.name()}
-            value={drafts[executor.id] ?? executor.name}
-            oninput={(e) => (drafts[executor.id] = e.currentTarget.value)}
-            required
-            maxlength="200"
-          />
-          {#if drafts[executor.id] !== undefined && drafts[executor.id] !== executor.name}
-            <button type="submit" class="primary">{m.save()}</button>
-            <button type="button" onclick={() => delete drafts[executor.id]}>{m.cancel()}</button>
-          {/if}
-        </form>
-      </li>
-    {/each}
-  </ul>
-  <form class="row" onsubmit={addExecutor}>
-    <input class="grow" bind:value={newExecutor} placeholder={m.name()} required maxlength="200" />
-    <button type="submit" class="primary">{m.add()}</button>
-  </form>
-</section>
-
-<section>
-  <h2>{m.this_device()}</h2>
-  <div class="row">
-    <label class="row">
-      {m.language()}
-      <!-- Reloads the page, so nothing needs to react to the change. -->
-      <select value={getLocale()} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
-        {#each locales as locale (locale)}
-          <option value={locale}>{languageNames[locale]}</option>
-        {/each}
-      </select>
-    </label>
-    <button onclick={logOut}>{m.log_out()}</button>
-  </div>
-</section>
-
 <style>
+  nav {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+  }
+
+  nav a {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  nav a[aria-current='page'] {
+    border-bottom-color: var(--accent);
+    color: var(--fg);
+  }
+
   section {
     margin-bottom: 2rem;
+  }
+
+  .toolbar,
+  .new {
+    margin-bottom: 1rem;
+  }
+
+  .new {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface);
+  }
+
+  h3 {
+    margin: 1rem 0 0.5rem;
+    padding-left: 0.5rem;
+    border-left: 0.25rem solid var(--group-color, transparent);
+    font-size: 1rem;
+    color: var(--muted);
   }
 
   ul {
