@@ -1,6 +1,6 @@
 <script lang="ts" module>
-  export const editTabs = ['chores', 'groups', 'people', 'settings'] as const;
-  export type EditTab = (typeof editTabs)[number];
+  export const manageTabs = ['chores', 'groups', 'people', 'settings'] as const;
+  export type ManageTab = (typeof manageTabs)[number];
 </script>
 
 <script lang="ts">
@@ -28,9 +28,9 @@
   import { getLocale, locales, setLocale, type Locale } from '../lib/paraglide/runtime.js';
   import TaskForm from './TaskForm.svelte';
 
-  let { view, executors, tab }: { view: ProjectView; executors: Executor[]; tab: EditTab } = $props();
+  let { view, executors, tab }: { view: ProjectView; executors: Executor[]; tab: ManageTab } = $props();
 
-  const tabLabels: Record<EditTab, () => string> = {
+  const tabLabels: Record<ManageTab, () => string> = {
     chores: m.chores,
     groups: m.groups,
     people: m.people,
@@ -131,9 +131,9 @@
   }
 </script>
 
-<nav aria-label={m.edit()}>
-  {#each editTabs as t (t)}
-    <a href={t === 'chores' ? '#edit' : `#edit/${t}`} aria-current={t === tab ? 'page' : undefined}>{tabLabels[t]()}</a>
+<nav aria-label={m.manage()}>
+  {#each manageTabs as t (t)}
+    <a href={t === 'chores' ? '#manage' : `#manage/${t}`} aria-current={t === tab ? 'page' : undefined}>{tabLabels[t]()}</a>
   {/each}
 </nav>
 

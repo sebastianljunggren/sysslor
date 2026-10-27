@@ -69,7 +69,7 @@
 </script>
 
 {#if executors.length === 0}
-  <p class="muted">{m.no_people()} <a href="#edit/people">{m.add_people()}</a></p>
+  <p class="muted">{m.no_people()} <a href="#manage/people">{m.add_people()}</a></p>
 {/if}
 
 {#if view.groups.length > 0 && view.tasks.length > 0}
@@ -84,7 +84,7 @@
 {/if}
 
 {#if view.tasks.length === 0}
-  <p class="muted">{m.no_chores()} <a href="#edit">{m.add_chores()}</a></p>
+  <p class="muted">{m.no_chores()} <a href="#manage">{m.add_chores()}</a></p>
 {:else if tasks.length === 0}
   <p class="muted">{m.no_chores_in_group()}</p>
 {:else}

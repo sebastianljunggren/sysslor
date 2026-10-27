@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "edit": "Edit",
+  "manage": "Manage",
   "done": "Done",
   "save": "Save",
   "add": "Add",

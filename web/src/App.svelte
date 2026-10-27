@@ -1,17 +1,17 @@
 <script lang="ts">
-  import EditView, { editTabs, type EditTab } from './components/EditView.svelte';
   import LoginView from './components/LoginView.svelte';
   import MainView from './components/MainView.svelte';
+  import ManageView, { manageTabs, type ManageTab } from './components/ManageView.svelte';
   import { connect, data, refreshAll } from './lib/data.svelte';
   import { m } from './lib/paraglide/messages.js';
 
-  // The hash keeps the edit view reachable with the back button without a router.
+  // The hash keeps the manage view reachable with the back button without a router.
   let hash = $state(location.hash);
-  const editing = $derived(hash === '#edit' || hash.startsWith('#edit/'));
-  // `#edit` alone, or a tab that no longer exists, opens the chores tab.
-  const editTab = $derived.by((): EditTab => {
-    const tab = hash.slice('#edit/'.length);
-    return editTabs.find((t) => t === tab) ?? 'chores';
+  const managing = $derived(hash === '#manage' || hash.startsWith('#manage/'));
+  // `#manage` alone, or a tab that no longer exists, opens the chores tab.
+  const manageTab = $derived.by((): ManageTab => {
+    const tab = hash.slice('#manage/'.length);
+    return manageTabs.find((t) => t === tab) ?? 'chores';
   });
 
   $effect(() => {
@@ -32,10 +32,10 @@
   <header>
     <h1>{data.view?.project.name ?? 'Sysslor'}</h1>
     {#if data.loggedIn}
-      {#if editing}
+      {#if managing}
         <a class="button" href="#/">{m.done()}</a>
       {:else}
-        <a class="button" href="#edit">{m.edit()}</a>
+        <a class="button" href="#manage">{m.manage()}</a>
       {/if}
     {/if}
   </header>
@@ -60,8 +60,8 @@
       {#if !data.loadError}
         <p class="muted">{m.loading()}</p>
       {/if}
-    {:else if editing}
-      <EditView view={data.view} executors={data.executors} tab={editTab} />
+    {:else if managing}
+      <ManageView view={data.view} executors={data.executors} tab={manageTab} />
     {:else}
       <MainView view={data.view} executors={data.executors} />
     {/if}

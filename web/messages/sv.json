@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "edit": "Redigera",
+  "manage": "Hantera",
   "done": "Klar",
   "save": "Spara",
   "add": "Lägg till",
