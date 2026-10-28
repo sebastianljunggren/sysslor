@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Executor } from '../lib/api/Executor';
-  import type { TaskView } from '../lib/api/TaskView';
-  import { localDateTime } from '../lib/format';
-  import { m } from '../lib/paraglide/messages.js';
+  import type { Executor } from '#lib/api/Executor.js';
+  import type { TaskView } from '#lib/api/TaskView.js';
+  import { localDateTime } from '#lib/format.js';
+  import { m } from '#lib/paraglide/messages.js';
 
   let {
     task,

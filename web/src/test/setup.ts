@@ -29,3 +29,8 @@ HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
   this.open = false;
   this.dispatchEvent(new Event('close'));
 };
+
+// jsdom can't navigate to another page. In the app, SvelteKit's router takes over link clicks.
+document.addEventListener('click', (event) => {
+  if (event.target instanceof Element && event.target.closest('a[href^="/"]')) event.preventDefault();
+});

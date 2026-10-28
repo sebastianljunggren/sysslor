@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { logIn } from '../lib/data.svelte';
-  import { m } from '../lib/paraglide/messages.js';
+  import { logIn } from '#lib/data.svelte.js';
+  import { m } from '#lib/paraglide/messages.js';
 
   let password = $state('');
   let error = $state<string | null>(null);

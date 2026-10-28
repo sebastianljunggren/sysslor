@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { executors, task } from '../test/fixtures';
+import { executors, task } from '../../test/fixtures';
 import CompleteDialog from './CompleteDialog.svelte';
 
 const now = new Date(2026, 9, 5, 18, 0);

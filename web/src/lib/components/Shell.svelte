@@ -1,14 +1,13 @@
 <script lang="ts">
-  import LoginView from './components/LoginView.svelte';
-  import MainView from './components/MainView.svelte';
-  import ManageView from './components/ManageView.svelte';
-  import Nav from './components/Nav.svelte';
-  import { connect, data, refreshAll } from './lib/data.svelte';
-  import { m } from './lib/paraglide/messages.js';
-  import { pageFromHash, pageLabel } from './lib/route';
+  import type { Snippet } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
+  import { connect, data, refreshAll } from '#lib/data.svelte.js';
+  import { m } from '#lib/paraglide/messages.js';
+  import { pageLabel, type Page } from '#lib/route.js';
+  import LoginView from './LoginView.svelte';
+  import Nav from './Nav.svelte';
 
-  let hash = $state(location.hash);
-  const page = $derived(pageFromHash(hash));
+  let { page, children }: { page: Page; children: Snippet } = $props();
   const projectName = $derived(data.view?.project.name ?? 'Sysslor');
 
   let drawer = $state<HTMLDialogElement>();
@@ -28,15 +27,8 @@
     if (event.target === drawer) closeDrawer();
   }
 
-  $effect(() => {
-    const onHashChange = () => {
-      hash = location.hash;
-      // The back button doesn't go through the menu's links.
-      closeDrawer();
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  });
+  // The back button doesn't go through the menu's links.
+  afterNavigate(closeDrawer);
 
   // An open modal keeps the page inert, also after the window grows past the breakpoint
   // where the menu button disappears.
@@ -116,10 +108,8 @@
         {#if !data.loadError}
           <p class="muted">{m.loading()}</p>
         {/if}
-      {:else if page === 'tasks'}
-        <MainView view={data.view} executors={data.executors} />
       {:else}
-        <ManageView view={data.view} executors={data.executors} tab={page} />
+        {@render children()}
       {/if}
     </main>
   </div>

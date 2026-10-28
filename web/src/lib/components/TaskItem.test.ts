@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clock } from '../lib/clock.svelte';
-import { executors, groups, jsonResponse, stubApi, task } from '../test/fixtures';
+import { clock } from '#lib/clock.svelte.js';
+import { executors, groups, jsonResponse, stubApi, task } from '../../test/fixtures';
 import TaskItem from './TaskItem.svelte';
 
 const now = new Date(2026, 9, 5, 18, 0);

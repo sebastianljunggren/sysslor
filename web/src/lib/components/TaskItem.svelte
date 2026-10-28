@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Executor } from '../lib/api/Executor';
-  import type { Group } from '../lib/api/Group';
-  import type { TaskView } from '../lib/api/TaskView';
-  import { deleteCompletion, putCompletion } from '../lib/client';
-  import { clock } from '../lib/clock.svelte';
-  import { mutate } from '../lib/data.svelte';
+  import type { Executor } from '#lib/api/Executor.js';
+  import type { Group } from '#lib/api/Group.js';
+  import type { TaskView } from '#lib/api/TaskView.js';
+  import { deleteCompletion, putCompletion } from '#lib/client.js';
+  import { clock } from '#lib/clock.svelte.js';
+  import { mutate } from '#lib/data.svelte.js';
   import {
     formatCadence,
     formatDue,
@@ -12,8 +12,8 @@
     formatInstant,
     formatInstantAbsolute,
     localDateTime,
-  } from '../lib/format';
-  import { m } from '../lib/paraglide/messages.js';
+  } from '#lib/format.js';
+  import { m } from '#lib/paraglide/messages.js';
 
   let {
     task,

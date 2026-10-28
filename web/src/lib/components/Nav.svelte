@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { m } from '../lib/paraglide/messages.js';
-  import { pageHref, pageLabel, type Page } from '../lib/route';
+  import { m } from '#lib/paraglide/messages.js';
+  import { pageHref, pageLabel, type Page } from '#lib/route.js';
 
   let { page, onnavigate }: { page: Page; onnavigate?: () => void } = $props();
 

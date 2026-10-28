@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { groups } from '../test/fixtures';
+import { groups } from '../../test/fixtures';
 import TaskForm from './TaskForm.svelte';
 
 describe('TaskForm', () => {

@@ -1,6 +1,7 @@
 /target
 /web/node_modules
 /web/dist
+/web/.svelte-kit
 *.db
 *.db-shm
 *.db-wal

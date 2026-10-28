@@ -14,6 +14,11 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["mcr.microsoft.com/playwright"],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>[a-z]+)$"
+    },
+    {
+      "description": "SvelteKit pins narrow peer ranges on svelte, vite and vite-plugin-svelte, so bump them together.",
+      "matchPackageNames": ["svelte", "@sveltejs/**", "vite"],
+      "groupName": "svelte"
     }
   ]
 }

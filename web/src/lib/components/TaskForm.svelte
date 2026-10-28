@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { CadenceUnit } from '../lib/api/CadenceUnit';
-  import type { Group } from '../lib/api/Group';
-  import type { TaskInput } from '../lib/api/TaskInput';
-  import { m } from '../lib/paraglide/messages.js';
+  import type { CadenceUnit } from '#lib/api/CadenceUnit.js';
+  import type { Group } from '#lib/api/Group.js';
+  import type { TaskInput } from '#lib/api/TaskInput.js';
+  import { m } from '#lib/paraglide/messages.js';
 
   let {
     initial = { name: '', cadence: { amount: 7, unit: 'days' }, priority: 0, group_id: null },

@@ -1,11 +1,11 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
-  import type { Executor } from '../lib/api/Executor';
-  import type { Group } from '../lib/api/Group';
-  import type { GroupColor } from '../lib/api/GroupColor';
-  import type { ProjectView } from '../lib/api/ProjectView';
-  import type { TaskInput } from '../lib/api/TaskInput';
-  import type { TaskView } from '../lib/api/TaskView';
+  import type { Executor } from '#lib/api/Executor.js';
+  import type { Group } from '#lib/api/Group.js';
+  import type { GroupColor } from '#lib/api/GroupColor.js';
+  import type { ProjectView } from '#lib/api/ProjectView.js';
+  import type { TaskInput } from '#lib/api/TaskInput.js';
+  import type { TaskView } from '#lib/api/TaskView.js';
   import {
     archiveTask,
     createExecutor,
@@ -16,12 +16,12 @@
     renameProject,
     updateGroup,
     updateTask,
-  } from '../lib/client';
-  import { logOut, mutate } from '../lib/data.svelte';
-  import { formatCadence, formatColor, groupColors } from '../lib/format';
-  import { m } from '../lib/paraglide/messages.js';
-  import type { Page } from '../lib/route';
-  import { getLocale, locales, setLocale, type Locale } from '../lib/paraglide/runtime.js';
+  } from '#lib/client.js';
+  import { logOut, mutate } from '#lib/data.svelte.js';
+  import { formatCadence, formatColor, groupColors } from '#lib/format.js';
+  import { m } from '#lib/paraglide/messages.js';
+  import type { Page } from '#lib/route.js';
+  import { getLocale, locales, setLocale, type Locale } from '#lib/paraglide/runtime.js';
   import TaskForm from './TaskForm.svelte';
 
   let { view, executors, tab }: { view: ProjectView; executors: Executor[]; tab: Exclude<Page, 'tasks'> } = $props();

@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { executors, projectView, task } from '../test/fixtures';
+import { executors, projectView, task } from '../../test/fixtures';
 import ManageView from './ManageView.svelte';
 
 /** Group headings followed by the chore names under them, in document order. */

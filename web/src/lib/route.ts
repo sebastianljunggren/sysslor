@@ -1,21 +1,16 @@
 import { m } from './paraglide/messages.js';
 
-// The hash is the route, so pages are reachable with the back button without a router.
-// The manage hashes predate the menu and stay as they are, since links point at them.
+// Each page is a SvelteKit route; its href is also its route id.
 export const pages = ['tasks', 'chores', 'groups', 'people', 'settings'] as const;
 export type Page = (typeof pages)[number];
 
-/** Unknown hashes open the task list; `#manage` alone or an unknown manage page opens chores. */
-export function pageFromHash(hash: string): Page {
-  if (hash !== '#manage' && !hash.startsWith('#manage/')) return 'tasks';
-  const page = hash.slice('#manage/'.length);
-  return pages.find((p) => p !== 'tasks' && p === page) ?? 'chores';
+export function pageHref(page: Page): string {
+  return page === 'tasks' ? '/' : `/manage/${page}`;
 }
 
-export function pageHref(page: Page): string {
-  if (page === 'tasks') return '#/';
-  if (page === 'chores') return '#manage';
-  return `#manage/${page}`;
+/** The id is `null` while an error page shows; that and any other route count as the task list. */
+export function pageFromRouteId(id: string | null): Page {
+  return pages.find((p) => pageHref(p) === id) ?? 'tasks';
 }
 
 const labels: Record<Page, () => string> = {

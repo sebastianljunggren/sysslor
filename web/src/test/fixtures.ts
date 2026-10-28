@@ -1,8 +1,8 @@
 import { vi } from 'vitest';
-import type { Executor } from '../lib/api/Executor';
-import type { Group } from '../lib/api/Group';
-import type { ProjectView } from '../lib/api/ProjectView';
-import type { TaskView } from '../lib/api/TaskView';
+import type { Executor } from '#lib/api/Executor.js';
+import type { Group } from '#lib/api/Group.js';
+import type { ProjectView } from '#lib/api/ProjectView.js';
+import type { TaskView } from '#lib/api/TaskView.js';
 
 export const executors: Executor[] = [
   { id: 1, name: 'Anna' },

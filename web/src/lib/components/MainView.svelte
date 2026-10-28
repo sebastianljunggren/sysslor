@@ -1,11 +1,12 @@
 <script lang="ts">
   import { flip } from 'svelte/animate';
-  import type { Executor } from '../lib/api/Executor';
-  import type { ProjectView } from '../lib/api/ProjectView';
-  import type { TaskView } from '../lib/api/TaskView';
-  import { deleteCompletion, putCompletion, uuidv7 } from '../lib/client';
-  import { data, mutate, pickGroupFilter, type GroupFilter } from '../lib/data.svelte';
-  import { m } from '../lib/paraglide/messages.js';
+  import type { Executor } from '#lib/api/Executor.js';
+  import type { ProjectView } from '#lib/api/ProjectView.js';
+  import type { TaskView } from '#lib/api/TaskView.js';
+  import { deleteCompletion, putCompletion, uuidv7 } from '#lib/client.js';
+  import { data, mutate, pickGroupFilter, type GroupFilter } from '#lib/data.svelte.js';
+  import { m } from '#lib/paraglide/messages.js';
+  import { pageHref } from '#lib/route.js';
   import CompleteDialog from './CompleteDialog.svelte';
   import TaskItem from './TaskItem.svelte';
 
@@ -69,7 +70,7 @@
 </script>
 
 {#if executors.length === 0}
-  <p class="muted">{m.no_people()} <a href="#manage/people">{m.add_people()}</a></p>
+  <p class="muted">{m.no_people()} <a href={pageHref('people')}>{m.add_people()}</a></p>
 {/if}
 
 {#if view.groups.length > 0 && view.tasks.length > 0}
@@ -84,7 +85,7 @@
 {/if}
 
 {#if view.tasks.length === 0}
-  <p class="muted">{m.no_chores()} <a href="#manage">{m.add_chores()}</a></p>
+  <p class="muted">{m.no_chores()} <a href={pageHref('chores')}>{m.add_chores()}</a></p>
 {:else if tasks.length === 0}
   <p class="muted">{m.no_chores_in_group()}</p>
 {:else}

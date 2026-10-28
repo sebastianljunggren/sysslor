@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { data } from '../lib/data.svelte';
-import { executors, jsonResponse, projectView } from '../test/fixtures';
+import { data } from '#lib/data.svelte.js';
+import { executors, jsonResponse, projectView } from '../../test/fixtures';
 import MainView from './MainView.svelte';
 
 const UUIDV7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
