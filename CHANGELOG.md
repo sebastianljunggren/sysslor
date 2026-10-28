@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/sebastianljunggren/sysslor/compare/v0.5.0...v0.6.0) (2026-10-28)
+
+
+### Features
+
+* add routing and migrate to SvelteKit ([#78](https://github.com/sebastianljunggren/sysslor/issues/78)) ([0fbe720](https://github.com/sebastianljunggren/sysslor/commit/0fbe7208fd054bd302adf8ff2b4f7168cf871767))
+* move navigation to a sidebar ([#76](https://github.com/sebastianljunggren/sysslor/issues/76)) ([ff20103](https://github.com/sebastianljunggren/sysslor/commit/ff20103b077fbafbeb1d5b58503bd9d9627a3ae5))
+* rename edit to manage and structure it with tabs ([#73](https://github.com/sebastianljunggren/sysslor/issues/73)) ([83b5820](https://github.com/sebastianljunggren/sysslor/commit/83b582089a59126ef631339dc5fbaa4e8b5a4927))
+
 ## [0.5.0](https://github.com/sebastianljunggren/sysslor/compare/v0.4.0...v0.5.0) (2026-10-18)
 
 
