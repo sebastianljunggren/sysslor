@@ -28,6 +28,20 @@ docker run -d --name sysslor \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
   ghcr.io/sebastianljunggren/sysslor:0.6.0
 ```
+Docker compose
+```
+services:
+    sysslor:
+        container_name: sysslor
+        ports:
+            - 8080:8080
+        volumes:
+            - local/path/sysslor-data:/data
+        environment:
+            - SYSSLOR_ADMIN_PASSWORD=<choose-a-password>
+            - SYSSLOR_COOKIE_KEY=<random 48 key>
+        image: ghcr.io/sebastianljunggren/sysslor:0.6.0
+```
 
 With Podman, `:U` on the volume takes care of the ownership:
 
