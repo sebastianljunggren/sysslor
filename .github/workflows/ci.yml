@@ -392,6 +392,7 @@ jobs:
         run: |
           docker run -d --name sysslor --network host \
             --tmpfs /data:mode=1777 \
+            -e SYSSLOR_TIME_ZONE=America/New_York \
             -e SYSSLOR_ADMIN_PASSWORD=smoke-test \
             -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
             sysslor:smoke-test

@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 
 db=target/demo.db
 export SYSSLOR_DATABASE_URL="sqlite://$db"
+export SYSSLOR_TIME_ZONE=Europe/Stockholm
 export SYSSLOR_ADMIN_PASSWORD=demo
 export SYSSLOR_COOKIE_KEY="$(head -c 48 /dev/urandom | base64 -w0)"
 

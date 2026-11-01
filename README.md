@@ -24,6 +24,7 @@ mkdir sysslor-data && sudo chown 65532:65532 sysslor-data
 docker run -d --name sysslor \
   -p 8080:8080 \
   -v "$PWD/sysslor-data:/data" \
+  -e SYSSLOR_TIME_ZONE=Europe/Stockholm \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
   ghcr.io/sebastianljunggren/sysslor:0.6.0
@@ -41,6 +42,7 @@ services:
     volumes:
       - ./sysslor-data:/data
     environment:
+      SYSSLOR_TIME_ZONE: Europe/Stockholm
       SYSSLOR_ADMIN_PASSWORD: choose-a-password
       # Generate once with `openssl rand -base64 48` and keep it.
       SYSSLOR_COOKIE_KEY: paste-the-generated-key-here
@@ -55,6 +57,7 @@ With Podman, `:U` on the volume takes care of the ownership:
 podman run -d --name sysslor \
   -p 8080:8080 \
   -v sysslor-data:/data:U \
+  -e SYSSLOR_TIME_ZONE=Europe/Stockholm \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
   ghcr.io/sebastianljunggren/sysslor:0.6.0
@@ -117,6 +120,8 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            - name: SYSSLOR_TIME_ZONE
+              value: Europe/Stockholm
             - name: SYSSLOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -178,7 +183,7 @@ All configuration is read from environment variables.
 | ------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | `SYSSLOR_ADMIN_PASSWORD`  | required                                         | The shared login password.                                                                          |
 | `SYSSLOR_COOKIE_KEY`      | required                                         | Key for signing session cookies, at least 32 bytes. Generate one with `openssl rand -base64 48`.    |
-| `SYSSLOR_TIME_ZONE`       | `Europe/Stockholm`                               | Time zone used to decide which calendar day a task is due.                                          |
+| `SYSSLOR_TIME_ZONE`       | required                                         | IANA time zone, e.g. `Europe/Stockholm`. Decides which calendar day a task is due.                  |
 | `SYSSLOR_LOCALE`          | `en`                                             | Language used to sort names (groups, tasks). This is the collation language, not the UI language.   |
 | `SYSSLOR_BIND_ADDR`       | `0.0.0.0:8080`                                   | Address to listen on.                                                                               |
 | `SYSSLOR_DATABASE_URL`    | `sqlite:///data/sysslor.db` in the image         | SQLite database location.                                                                           |

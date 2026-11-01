@@ -62,7 +62,10 @@ fn database_url_from_env() -> String {
 }
 
 fn time_zone_from_env() -> anyhow::Result<TimeZone> {
-    let tz_name = env_or("SYSSLOR_TIME_ZONE", "Europe/Stockholm");
+    // No default: a wrong zone doesn't fail, it silently shifts when tasks become due.
+    let Ok(tz_name) = required_env("SYSSLOR_TIME_ZONE") else {
+        bail!("SYSSLOR_TIME_ZONE must be set to an IANA time zone, e.g. Europe/Stockholm");
+    };
     TimeZone::get(&tz_name)
         .with_context(|| format!("SYSSLOR_TIME_ZONE {tz_name:?} is not a known time zone"))
 }
