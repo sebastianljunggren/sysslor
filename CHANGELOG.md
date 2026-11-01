@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/sebastianljunggren/sysslor/compare/v0.6.0...v1.0.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* `SYSSLOR_TIME_ZONE` no longer defaults to `Europe/Stockholm`. Set it to your IANA time zone, e.g. `SYSSLOR_TIME_ZONE=Europe/Stockholm`.
+
+### Features
+
+* require SYSSLOR_TIME_ZONE ([b7158b0](https://github.com/sebastianljunggren/sysslor/commit/b7158b0ca3b7d65ea133ed7267273127d64dc8cd))
+
 ## [0.6.0](https://github.com/sebastianljunggren/sysslor/compare/v0.5.0...v0.6.0) (2026-10-28)
 
 

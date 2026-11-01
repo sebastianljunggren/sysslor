@@ -1,6 +1,6 @@
 [package]
 name = "sysslor"
-version = "0.6.0"
+version = "1.0.0"
 edition = "2024"
 description = "Household chores with a cadence, synced live across devices"
 license = "MIT OR Apache-2.0"

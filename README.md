@@ -27,7 +27,7 @@ docker run -d --name sysslor \
   -e SYSSLOR_TIME_ZONE=Europe/Stockholm \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
-  ghcr.io/sebastianljunggren/sysslor:0.6.0
+  ghcr.io/sebastianljunggren/sysslor:1.0.0
 ```
 
 With Docker Compose, create the directory the same way and use:
@@ -35,7 +35,7 @@ With Docker Compose, create the directory the same way and use:
 ```yaml
 services:
   sysslor:
-    image: ghcr.io/sebastianljunggren/sysslor:0.6.0
+    image: ghcr.io/sebastianljunggren/sysslor:1.0.0
     restart: unless-stopped
     ports:
       - 8080:8080
@@ -60,7 +60,7 @@ podman run -d --name sysslor \
   -e SYSSLOR_TIME_ZONE=Europe/Stockholm \
   -e SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
-  ghcr.io/sebastianljunggren/sysslor:0.6.0
+  ghcr.io/sebastianljunggren/sysslor:1.0.0
 ```
 
 With Kubernetes, create the secret first, so it stays out of the manifest:
@@ -115,7 +115,7 @@ spec:
             claimName: sysslor-data
       containers:
         - name: sysslor
-          image: ghcr.io/sebastianljunggren/sysslor:0.6.0
+          image: ghcr.io/sebastianljunggren/sysslor:1.0.0
           ports:
             - name: http
               containerPort: 8080
