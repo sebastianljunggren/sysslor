@@ -28,20 +28,26 @@ docker run -d --name sysslor \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
   ghcr.io/sebastianljunggren/sysslor:0.6.0
 ```
-Docker compose
-```
+
+With Docker Compose, create the directory the same way and use:
+
+```yaml
 services:
-    sysslor:
-        container_name: sysslor
-        ports:
-            - 8080:8080
-        volumes:
-            - local/path/sysslor-data:/data
-        environment:
-            - SYSSLOR_ADMIN_PASSWORD=<choose-a-password>
-            - SYSSLOR_COOKIE_KEY=<random 48 key>
-        image: ghcr.io/sebastianljunggren/sysslor:0.6.0
+  sysslor:
+    image: ghcr.io/sebastianljunggren/sysslor:0.6.0
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    volumes:
+      - ./sysslor-data:/data
+    environment:
+      SYSSLOR_ADMIN_PASSWORD: choose-a-password
+      # Generate once with `openssl rand -base64 48` and keep it.
+      SYSSLOR_COOKIE_KEY: paste-the-generated-key-here
 ```
+
+Instead of the `chown`, you can run the container as yourself with `user: "1000:1000"` (your
+`id -u` and `id -g`) and use a directory you own.
 
 With Podman, `:U` on the volume takes care of the ownership:
 
@@ -53,6 +59,112 @@ podman run -d --name sysslor \
   -e SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
   ghcr.io/sebastianljunggren/sysslor:0.6.0
 ```
+
+With Kubernetes, create the secret first, so it stays out of the manifest:
+
+```sh
+kubectl create secret generic sysslor \
+  --from-literal=admin-password='choose-a-password' \
+  --from-literal=cookie-key="$(openssl rand -base64 48)"
+```
+
+Then apply a manifest like this one. `fsGroup` takes care of the ownership:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sysslor-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sysslor
+spec:
+  # SQLite cannot have two writers: one replica, and stop it before starting a new one.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sysslor
+  template:
+    metadata:
+      labels:
+        app: sysslor
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sysslor-data
+      containers:
+        - name: sysslor
+          image: ghcr.io/sebastianljunggren/sysslor:0.6.0
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SYSSLOR_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sysslor
+                  key: admin-password
+            - name: SYSSLOR_COOKIE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sysslor
+                  key: cookie-key
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sysslor
+spec:
+  selector:
+    app: sysslor
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+```
+
+Expose the Service through your ingress with TLS, and see the deployment notes below.
 
 <!-- x-release-please-end -->
 
