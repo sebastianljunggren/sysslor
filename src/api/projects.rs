@@ -78,7 +78,7 @@ mod tests {
     async fn default_project_starts_empty(pool: SqlitePool) {
         let view = default_project(&pool).await;
         assert_eq!(view.project.id, DEFAULT_PROJECT);
-        assert_eq!(view.project.name, "Default");
+        assert_eq!(view.project.name, "Home");
         assert!(view.tasks.is_empty());
     }
 

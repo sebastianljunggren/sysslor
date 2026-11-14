@@ -11,13 +11,11 @@ use uuid::Builder;
 use crate::db::completions::{self, Completion};
 use crate::db::projects::ProjectId;
 use crate::db::tasks::{self, TaskFields};
-use crate::db::{self, executors, groups, projects};
+use crate::db::{self, executors, groups};
 use crate::domain::{Cadence, CadenceUnit, GroupColor};
 
 /// The project created by the first migration.
 const PROJECT_ID: ProjectId = 1;
-
-const PROJECT_NAME: &str = "Home";
 
 const EXECUTORS: [&str; 3] = ["Alex", "Sam", "Robin"];
 
@@ -111,10 +109,6 @@ async fn seed(pool: &SqlitePool, now: Timestamp, tz: &TimeZone) -> anyhow::Resul
         bail!("refusing to seed demo data into a database that already has data");
     }
 
-    projects::rename(pool, PROJECT_ID, PROJECT_NAME)
-        .await?
-        .with_context(|| format!("project {PROJECT_ID} does not exist"))?;
-
     let mut executor_ids = Vec::new();
     for name in EXECUTORS {
         executor_ids.push(executors::create(pool, name).await?.id);
@@ -189,9 +183,6 @@ mod tests {
     #[sqlx::test]
     async fn range_hood_filter_is_on_top(pool: SqlitePool) {
         seed(&pool, now(), &stockholm()).await.unwrap();
-
-        let project = projects::get(&pool, PROJECT_ID).await.unwrap().unwrap();
-        assert_eq!(project.name, "Home");
 
         let groups = groups::list(&pool, PROJECT_ID).await.unwrap();
         let colors: HashSet<_> = groups
