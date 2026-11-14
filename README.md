@@ -3,7 +3,7 @@
 Sysslor is a chore list where every task has a cadence. Complete "Vacuum" with a cadence of
 7 days and it comes back a week later. Tasks that need attention, because they are overdue or
 prioritized, are sorted to the top. Changes show up live on every open device. It is built for
-one family sharing a single password, and ships as a single small container image backed by
+one household sharing a single password, and ships as a single small container image backed by
 SQLite.
 
 <picture>
@@ -11,7 +11,7 @@ SQLite.
   <img src="docs/screenshots/tasks-light.png" width="390" alt="The task list on a phone: overdue tasks on top, each with its group, cadence and who last did it">
 </picture>
 
-## Running
+## Quick start
 
 The container runs as UID 65532, so `/data` must be writable by that user.
 
@@ -30,7 +30,67 @@ docker run -d --name sysslor \
   ghcr.io/sebastianljunggren/sysslor:1.0.0
 ```
 
-With Docker Compose, create the directory the same way and use:
+<!-- x-release-please-end -->
+
+See [Running](#running) for examples using the binaries, Docker Compose, Podman and Kubernetes.
+
+## Configuration
+
+All configuration is read from environment variables.
+
+| Variable                 | Default                                                         | Description                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SYSSLOR_ADMIN_PASSWORD` | required                                                        | The shared login password.                                                                                                                 |
+| `SYSSLOR_COOKIE_KEY`     | required                                                        | Key for signing session cookies, at least 32 bytes. Generate once with `openssl rand -base64 48` and keep it: a new key logs everyone out. |
+| `SYSSLOR_TIME_ZONE`      | required                                                        | IANA time zone, e.g. `Europe/Stockholm`. Decides which calendar day a task is due.                                                         |
+| `SYSSLOR_LOCALE`         | `en`                                                            | Language used to sort names (groups, tasks). This is the collation language, not the UI language.                                          |
+| `SYSSLOR_BIND_ADDR`      | `0.0.0.0:8080`                                                  | Address to listen on.                                                                                                                      |
+| `SYSSLOR_DATABASE_URL`   | `sqlite://sysslor.db`, `sqlite:///data/sysslor.db` in the image | SQLite database location.                                                                                                                  |
+
+## Deployment notes
+
+- Serve it over HTTPS (or `localhost`). The session cookie is `Secure`, so logging in over plain
+  HTTP will not work.
+- Run a single instance. SQLite cannot have two writers, so use one replica and stop the old
+  container before starting a new one.
+- Disable proxy buffering for `/api/events`, which is a Server-Sent Events stream used for
+  live updates.
+- Put the database on local or block storage, not NFS. SQLite file locking does not work
+  reliably on NFS.
+
+## Running
+
+### Binaries
+
+Static binaries for x86_64 and aarch64 Linux are attached to each GitHub release. They have no
+runtime dependencies.
+
+<!-- x-release-please-start-version -->
+
+```sh
+VERSION=1.0.0
+ARCH=$(uname -m) # x86_64 or aarch64
+BIN=sysslor-v$VERSION-$ARCH-linux-musl
+curl -fLO "https://github.com/sebastianljunggren/sysslor/releases/download/v$VERSION/$BIN"
+curl -fLO "https://github.com/sebastianljunggren/sysslor/releases/download/v$VERSION/SHA256SUMS"
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x "$BIN"
+SYSSLOR_TIME_ZONE=Europe/Stockholm \
+SYSSLOR_ADMIN_PASSWORD='choose-a-password' \
+SYSSLOR_COOKIE_KEY="$(openssl rand -base64 48)" \
+  "./$BIN"
+```
+
+<!-- x-release-please-end -->
+
+The database is created as `sysslor.db` in the working directory unless `SYSSLOR_DATABASE_URL`
+is set. Generate the cookie key once and keep it; as written above, it changes on every start.
+
+### Docker Compose
+
+With Docker Compose, create the directory as in [Quick start](#quick-start) and use:
+
+<!-- x-release-please-start-version -->
 
 ```yaml
 services:
@@ -48,10 +108,16 @@ services:
       SYSSLOR_COOKIE_KEY: paste-the-generated-key-here
 ```
 
+<!-- x-release-please-end -->
+
 Instead of the `chown`, you can run the container as yourself with `user: "1000:1000"` (your
 `id -u` and `id -g`) and use a directory you own.
 
+### Podman
+
 With Podman, `:U` on the volume takes care of the ownership:
+
+<!-- x-release-please-start-version -->
 
 ```sh
 podman run -d --name sysslor \
@@ -63,6 +129,10 @@ podman run -d --name sysslor \
   ghcr.io/sebastianljunggren/sysslor:1.0.0
 ```
 
+<!-- x-release-please-end -->
+
+### Kubernetes
+
 With Kubernetes, create the secret first, so it stays out of the manifest:
 
 ```sh
@@ -72,6 +142,8 @@ kubectl create secret generic sysslor \
 ```
 
 Then apply a manifest like this one. `fsGroup` takes care of the ownership:
+
+<!-- x-release-please-start-version -->
 
 ```yaml
 apiVersion: v1
@@ -169,35 +241,15 @@ spec:
       targetPort: http
 ```
 
-Expose the Service through your ingress with TLS, and see the deployment notes below.
-
 <!-- x-release-please-end -->
 
-Keep `SYSSLOR_COOKIE_KEY` stable across restarts, or everyone gets logged out.
+Expose the Service through your ingress with TLS, and see [Deployment notes](#deployment-notes).
 
-## Configuration
+## AI
 
-All configuration is read from environment variables.
-
-| Variable                  | Default                                          | Description                                                                                         |
-| ------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `SYSSLOR_ADMIN_PASSWORD`  | required                                         | The shared login password.                                                                          |
-| `SYSSLOR_COOKIE_KEY`      | required                                         | Key for signing session cookies, at least 32 bytes. Generate one with `openssl rand -base64 48`.    |
-| `SYSSLOR_TIME_ZONE`       | required                                         | IANA time zone, e.g. `Europe/Stockholm`. Decides which calendar day a task is due.                  |
-| `SYSSLOR_LOCALE`          | `en`                                             | Language used to sort names (groups, tasks). This is the collation language, not the UI language.   |
-| `SYSSLOR_BIND_ADDR`       | `0.0.0.0:8080`                                   | Address to listen on.                                                                               |
-| `SYSSLOR_DATABASE_URL`    | `sqlite:///data/sysslor.db` in the image         | SQLite database location.                                                                           |
-
-## Deployment notes
-
-- Serve it over HTTPS (or `localhost`). The session cookie is `Secure`, so logging in over plain
-  HTTP will not work.
-- Run a single instance. SQLite cannot have two writers, so use one replica and stop the old
-  container before starting a new one.
-- Disable proxy buffering for `/api/events`, which is a Server-Sent Events stream used for
-  live updates.
-- Put the database on local or block storage, not NFS. SQLite file locking does not work
-  reliably on NFS.
+Sysslor is developed with AI coding agents. Most of the code and docs are written by an agent
+at my direction, and I review and test. CI runs the tests, linting and type checks on every
+change.
 
 ## License
 
