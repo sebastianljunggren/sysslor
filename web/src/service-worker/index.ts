@@ -10,6 +10,10 @@ const APP_CACHE = `app-${version}`;
 const API_CACHE = 'api';
 // The Rust backend serves the same index.html for every client route.
 const INDEX = resolve('/');
+// When the hostname resolves but nothing answers (VPN down, weak signal), fetch would wait
+// for the OS connect timeout, often minutes, before the cached copy is shown.
+const PAGE_TIMEOUT_MS = 3000;
+const API_TIMEOUT_MS = 5000;
 
 const assets = new Set([...immutable, ...staticFiles].map(({ path }) => resolve(path)));
 
@@ -56,9 +60,20 @@ async function fromCacheFirst(request: Request): Promise<Response> {
   return cached ?? fetch(request);
 }
 
+/** Rejects if the response headers don't arrive in time. A slow body is not cut off. */
+async function fetchWithTimeout(request: Request, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function page(request: Request): Promise<Response> {
   try {
-    return await fetch(request);
+    return await fetchWithTimeout(request, PAGE_TIMEOUT_MS);
   } catch (error) {
     const cached = await caches.match(INDEX, { cacheName: APP_CACHE });
     if (cached) return cached;
@@ -70,7 +85,7 @@ async function page(request: Request): Promise<Response> {
 async function apiData(request: Request): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(request);
+    response = await fetchWithTimeout(request, API_TIMEOUT_MS);
   } catch {
     const cached = await caches.match(request, { cacheName: API_CACHE });
     // An error makes fetch() reject in the page, as if there were no service worker.
