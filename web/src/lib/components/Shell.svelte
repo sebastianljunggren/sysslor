@@ -151,8 +151,12 @@
     color: var(--fg);
   }
 
+  /* viewport-fit=cover lets Android draw the page behind the navigation bar, so the bar
+     shows the page background. Keep content out from under it. */
   :global(body) {
     margin: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
   }
 
   :global(button),
@@ -285,7 +289,8 @@
     height: 100dvh;
     max-height: none;
     margin: 0;
-    padding: 1rem 0.5rem;
+    padding: calc(1rem + env(safe-area-inset-top)) 0.5rem calc(1rem + env(safe-area-inset-bottom))
+      calc(0.5rem + env(safe-area-inset-left));
     border: none;
     border-right: 1px solid var(--border);
     background: var(--surface);
@@ -331,7 +336,7 @@
       top: 0;
       height: 100dvh;
       box-sizing: border-box;
-      padding: 1.5rem 0.5rem;
+      padding: 1.5rem 0.5rem calc(1.5rem + env(safe-area-inset-bottom));
       border-right: 1px solid var(--border);
       background: var(--surface);
       overflow-y: auto;
