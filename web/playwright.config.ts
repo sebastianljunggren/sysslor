@@ -15,6 +15,8 @@ export default defineConfig({
     isMobile: false,
     locale: 'en-US',
     timezoneId: 'Europe/Stockholm',
+    // A service worker could answer from its cache and make screenshots depend on timing.
+    serviceWorkers: 'block',
   },
   expect: {
     toHaveScreenshot: { animations: 'disabled', caret: 'hide', scale: 'device' },

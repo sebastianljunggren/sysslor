@@ -146,7 +146,7 @@ fn validate_name(name: &str) -> ApiResult<String> {
 #[cfg(test)]
 mod tests {
     use super::test_util::*;
-    use axum::http::StatusCode;
+    use axum::http::{StatusCode, header};
     use sqlx::SqlitePool;
 
     #[sqlx::test]
@@ -160,6 +160,21 @@ mod tests {
         let (status, body) = request(&pool, "GET", "/some/client/route", None).await;
         assert_eq!(status, StatusCode::OK);
         assert!(body.contains("<html"));
+    }
+
+    #[sqlx::test]
+    async fn pwa_files_are_served_for_install_and_updates(pool: SqlitePool) {
+        let state = state(&pool);
+        let manifest = response_with(&state, "GET", "/manifest.webmanifest", None).await;
+        assert_eq!(manifest.status(), StatusCode::OK);
+        assert_eq!(
+            manifest.headers()[header::CONTENT_TYPE],
+            "application/manifest+json"
+        );
+        // Browsers only pick up a new service worker if it isn't served from the HTTP cache.
+        let worker = response_with(&state, "GET", "/service-worker.js", None).await;
+        assert_eq!(worker.status(), StatusCode::OK);
+        assert_eq!(worker.headers()[header::CACHE_CONTROL], "no-cache");
     }
 
     #[sqlx::test]

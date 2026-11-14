@@ -8,16 +8,20 @@
   },
   "scripts": {
     "prepare": "svelte-kit sync || echo \"\"",
+    "predev": "npm run icons",
     "dev": "vite",
+    "prebuild": "npm run icons",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "screenshots": "playwright test"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p src/service-worker/tsconfig.json",
+    "screenshots": "playwright test",
+    "icons": "node scripts/icons.js"
   },
   "devDependencies": {
     "@inlang/paraglide-js": "3.2.2",
     "@playwright/test": "1.65.0",
+    "@resvg/resvg-js": "2.6.2",
     "@sveltejs/adapter-static": "4.0.1",
     "@sveltejs/kit": "3.2.0",
     "@sveltejs/vite-plugin-svelte": "7.3.1",

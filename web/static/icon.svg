@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Solarized base03 and green. SVG can't use the CSS variables from Shell.svelte. -->
+  <rect width="512" height="512" rx="112" fill="#002b36"/>
+  <!-- The complete button's checkmark from TaskItem.svelte, scaled 16x around the center. -->
+  <path d="M144 260l72 72 152-152" fill="none" stroke="#859900" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
