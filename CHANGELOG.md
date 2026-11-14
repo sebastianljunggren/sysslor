@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/sebastianljunggren/sysslor/compare/v1.0.0...v1.1.0) (2026-11-14)
+
+
+### Features
+
+* implement PWA support and add icon ([#113](https://github.com/sebastianljunggren/sysslor/issues/113)) ([0243b88](https://github.com/sebastianljunggren/sysslor/commit/0243b88008f19634e25e66920a45c09ad089a315))
+* rename default project to Home ([#115](https://github.com/sebastianljunggren/sysslor/issues/115)) ([f4e6c94](https://github.com/sebastianljunggren/sysslor/commit/f4e6c949088b232feab6502e2cbeda4c947619c1))
+
+
+### Bug Fixes
+
+* add timeout so offline fallback isn't stuck waiting on the network ([#116](https://github.com/sebastianljunggren/sysslor/issues/116)) ([31f76da](https://github.com/sebastianljunggren/sysslor/commit/31f76daf4c98ab36e2202de08837c013a00a8374))
+
 ## [1.0.0](https://github.com/sebastianljunggren/sysslor/compare/v0.6.0...v1.0.0) (2026-11-01)
 
 
