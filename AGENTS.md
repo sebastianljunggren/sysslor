@@ -56,7 +56,8 @@ DATABASE_URL=sqlite://target/sqlx-dev.db cargo sqlx prepare -- --all-targets
 - Styling: plain CSS with `light-dark()` for colors. No CSS frameworks.
 - Colors: Solarized only. Use the semantic tokens (`--fg`, `--surface`, `--accent`, ...) or
   the palette variables (`--base03`..`--base3`, `--blue`, ...) defined in
-  `web/src/lib/components/Shell.svelte`. No raw color literals anywhere else.
+  `web/src/lib/components/Shell.svelte`. No raw color literals anywhere else, except
+  where CSS variables can't reach.
 - UI strings: Paraglide messages in `web/messages/{en,sv}.json`, used as `m.key()`. Every
   UI change updates both files; use plural variants instead of `count === 1` checks.
 
@@ -87,7 +88,8 @@ DATABASE_URL=sqlite://target/sqlx-dev.db cargo sqlx prepare -- --all-targets
   or `*.db`, `*.db-wal`, `*.db-shm`.
 - Never edit an existing file in `migrations/`. Add a new numbered migration instead.
 - Do not hand-edit generated files: `.sqlx/`, `web/src/lib/api/` (ts-rs output),
-  `web/src/lib/paraglide/`, `web/.svelte-kit/`, `web/dist/`,
+  `web/src/lib/paraglide/`, `web/.svelte-kit/`, `web/dist/`, `web/static/icons/` (PNGs
+  rendered from `web/static/*.svg` by `npm run icons`, which runs before `dev` and `build`),
   `Cargo.lock`/`package-lock.json` (change via cargo/npm), `docs/screenshots/` (rendered by CI).
 - Don't hand-edit `CHANGELOG.md`, `.release-please-manifest.json` or the version in
   `Cargo.toml`; release-please owns them, based on conventional commits.

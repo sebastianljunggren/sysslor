@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full bleed: the platform applies its own mask. The glyph stays inside the 80% safe zone. -->
+  <rect width="512" height="512" fill="#002b36"/>
+  <path d="M144 260l72 72 152-152" fill="none" stroke="#859900" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
