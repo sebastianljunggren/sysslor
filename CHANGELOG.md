@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/sebastianljunggren/sysslor/compare/v1.1.0...v1.1.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* draw behind the android navigation bar in the installed app ([#117](https://github.com/sebastianljunggren/sysslor/issues/117)) ([51053f9](https://github.com/sebastianljunggren/sysslor/commit/51053f9d2d0caf177db555df2ab78d3b6830d9bd))
+
 ## [1.1.0](https://github.com/sebastianljunggren/sysslor/compare/v1.0.0...v1.1.0) (2026-11-14)
 
 
