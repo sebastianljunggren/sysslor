@@ -106,7 +106,7 @@ pub fn now_ms() -> i64 {
 /// Now minus `days` calendar days in the configured time zone. Subtracting `days * 24h`
 /// instead would make tests flaky around DST changes.
 pub fn days_ago(days: i64) -> i64 {
-    jiff::Zoned::now()
+    jiff::ZonedDateTime::now()
         .with_time_zone(TimeZone::get("Europe/Stockholm").unwrap())
         .checked_sub(jiff::Span::new().days(days))
         .unwrap()

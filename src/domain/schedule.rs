@@ -43,8 +43,8 @@ impl Schedule {
         let Some(last_completed) = last_completed else {
             return Self::NeverCompleted;
         };
-        let today = now.to_zoned(tz.clone()).date();
-        let completed_on = last_completed.to_zoned(tz.clone()).date();
+        let today = now.to_zoned_datetime(tz.clone()).date();
+        let completed_on = last_completed.to_zoned_datetime(tz.clone()).date();
         // A completion "in the future" (clock skew between devices) counts as today.
         let elapsed_days = (today - completed_on).get_days().max(0);
         let cadence_days = cadence.in_days();
@@ -126,7 +126,7 @@ fn compare(a: &ScheduledTask, b: &ScheduledTask, collator: &Collator) -> Orderin
 mod tests {
     use super::*;
     use crate::domain::test_collator;
-    use jiff::Zoned;
+    use jiff::ZonedDateTime;
     use jiff::civil::date;
 
     fn stockholm() -> TimeZone {
@@ -135,7 +135,7 @@ mod tests {
 
     /// Parses e.g. `"2026-10-05T23:30[Europe/Stockholm]"`.
     fn at(s: &str) -> Timestamp {
-        s.parse::<Zoned>().unwrap().timestamp()
+        s.parse::<ZonedDateTime>().unwrap().timestamp()
     }
 
     fn task(id: TaskId, cadence: Cadence, priority: u8) -> Task {

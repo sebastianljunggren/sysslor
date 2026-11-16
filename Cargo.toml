@@ -17,7 +17,7 @@ axum-extra = { version = "0.12.6", default-features = false, features = ["cookie
 futures-util = { version = "0.3.34", default-features = false }
 icu_collator = "2"
 icu_locale_core = "2"
-jiff = { version = "0.2.37", features = ["tzdb-bundle-always"] }
+jiff = { version = "1.0.0", features = ["tzdb-bundle-always"] }
 mime_guess = "2.0.5"
 rust-embed = "8.12.0"
 serde = { version = "1.0.229", features = ["derive"] }

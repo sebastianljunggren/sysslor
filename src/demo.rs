@@ -122,7 +122,7 @@ async fn seed(pool: &SqlitePool, now: Timestamp, tz: &TimeZone) -> anyhow::Resul
         group_ids.push(group.id);
     }
 
-    let today = now.to_zoned(tz.clone()).date();
+    let today = now.to_zoned_datetime(tz.clone()).date();
     for (index, demo) in TASKS.iter().enumerate() {
         let fields = TaskFields {
             name: demo.name.to_owned(),
@@ -142,7 +142,7 @@ async fn seed(pool: &SqlitePool, now: Timestamp, tz: &TimeZone) -> anyhow::Resul
         let completed_at = today
             .checked_sub(Span::new().days(days_ago))?
             .to_datetime(Time::constant(18, 30, 0, 0))
-            .to_zoned(tz.clone())?
+            .to_zoned_datetime(tz.clone())?
             .timestamp()
             .min(now);
         let millis = u64::try_from(completed_at.as_millisecond())
@@ -164,7 +164,7 @@ async fn seed(pool: &SqlitePool, now: Timestamp, tz: &TimeZone) -> anyhow::Resul
 mod tests {
     use std::collections::HashSet;
 
-    use jiff::Zoned;
+    use jiff::ZonedDateTime;
 
     use super::*;
     use crate::domain::{sort_tasks, test_collator};
@@ -175,7 +175,7 @@ mod tests {
 
     fn now() -> Timestamp {
         "2026-10-10T09:00[Europe/Stockholm]"
-            .parse::<Zoned>()
+            .parse::<ZonedDateTime>()
             .unwrap()
             .timestamp()
     }

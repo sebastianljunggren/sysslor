@@ -34,7 +34,7 @@ impl Clock {
 fn parse_fixed(value: &str) -> anyhow::Result<Timestamp> {
     use anyhow::Context;
 
-    if let Ok(zoned) = value.parse::<jiff::Zoned>() {
+    if let Ok(zoned) = value.parse::<jiff::ZonedDateTime>() {
         return Ok(zoned.timestamp());
     }
     value
