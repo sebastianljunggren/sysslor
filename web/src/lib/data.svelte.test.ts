@@ -188,3 +188,167 @@ describe('connect', () => {
   });
 });
 
+
+describe('flushQueue', () => {
+  const entry = (id: string, completedAt = 1000) => ({
+    id,
+    taskName: `Task ${id}`,
+    input: { task_id: 1, executor_id: 1, completed_at: completedAt },
+  });
+
+  async function loadWithQueue(...ids: string[]) {
+    const store = await load();
+    const queue = await import('./queue.svelte');
+    for (const id of ids) queue.enqueue(entry(id));
+    return { ...store, ...queue };
+  }
+
+  /** PUTs answer with `status(id)`, `'offline'` rejects. Records the request order. */
+  function stubPuts(status: (id: string) => number | 'offline' = () => 200) {
+    const requests: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        requests.push(`${method} ${url}`);
+        if (url === '/api/projects/1') return jsonResponse(projectView());
+        if (url === '/api/executors') return jsonResponse(executors);
+        if (method === 'DELETE') return jsonResponse();
+        const id = url.split('/').pop()!;
+        const answer = status(id);
+        if (answer === 'offline') throw new TypeError('Failed to fetch');
+        return jsonResponse(answer === 200 ? { id, ...JSON.parse(init!.body as string) } : { error: 'boom' }, answer);
+      }),
+    );
+    return requests;
+  }
+
+  const puts = (requests: string[]) => requests.filter((r) => r.startsWith('PUT'));
+
+  it('sends entries in order, then refetches', async () => {
+    const { flushQueue, queue } = await loadWithQueue('a', 'b');
+    const requests = stubPuts();
+
+    expect(await flushQueue()).toEqual(new Set(['a', 'b']));
+
+    expect(puts(requests)).toEqual(['PUT /api/completions/a', 'PUT /api/completions/b']);
+    expect(queue.entries).toEqual([]);
+    await vi.waitFor(() => expect(requests).toContain('GET /api/projects/1'));
+  });
+
+  it('keeps the rest in order when the server is out of reach', async () => {
+    const { flushQueue, queue } = await loadWithQueue('a', 'b', 'c');
+    const requests = stubPuts((id) => (id === 'b' ? 'offline' : 200));
+
+    await flushQueue();
+
+    expect(puts(requests)).toHaveLength(2);
+    expect(queue.entries.map((e) => e.id)).toEqual(['b', 'c']);
+    expect(JSON.parse(localStorage.getItem('sysslor.queue')!)).toHaveLength(2);
+  });
+
+  it('keeps entries the server fails on, and drops ones it rejects', async () => {
+    const { data, flushQueue, queue } = await loadWithQueue('a', 'b');
+    stubPuts((id) => (id === 'a' ? 422 : 503));
+
+    await flushQueue();
+
+    expect(data.actionError).toBe('Could not save Task a: boom (422)');
+    expect(queue.entries.map((e) => e.id)).toEqual(['b']);
+  });
+
+  it('keeps the queue for after logging in again', async () => {
+    const { data, flushQueue, queue } = await loadWithQueue('a');
+    stubPuts(() => 401);
+
+    await flushQueue();
+
+    expect(data.loggedIn).toBe(false);
+    expect(queue.entries).toHaveLength(1);
+  });
+
+  it('sends once when asked again while sending', async () => {
+    const { flushQueue } = await loadWithQueue('a');
+    const requests = stubPuts();
+
+    await Promise.all([flushQueue(), flushQueue()]);
+
+    expect(puts(requests)).toHaveLength(1);
+  });
+
+  it('sends the new version of an entry backdated while it was being sent', async () => {
+    const { flushQueue, enqueue, queue } = await loadWithQueue('a');
+    const bodies: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method !== 'PUT') return jsonResponse(url === '/api/executors' ? [] : projectView());
+        bodies.push(JSON.parse(init.body as string));
+        if (bodies.length === 1) enqueue(entry('a', 500));
+        return jsonResponse({ id: 'a', ...(bodies.at(-1) as object) });
+      }),
+    );
+
+    await flushQueue();
+
+    expect(bodies).toMatchObject([{ completed_at: 1000 }, { completed_at: 500 }]);
+    expect(queue.entries).toEqual([]);
+  });
+
+  it('deletes an entry undone while it was being sent', async () => {
+    const { flushQueue, undoCompletion, queue } = await loadWithQueue('a');
+    const requests = stubPuts();
+
+    const flushed = flushQueue();
+    const undone = undoCompletion('a');
+    await Promise.all([flushed, undone]);
+
+    expect(requests.filter((r) => !r.startsWith('GET'))).toEqual([
+      'PUT /api/completions/a',
+      'DELETE /api/completions/a',
+    ]);
+    expect(queue.entries).toEqual([]);
+  });
+
+  it('tells whether a completion was saved, queued or rejected', async () => {
+    const { saveCompletion } = await loadWithQueue();
+    let status: number | 'offline' = 200;
+    stubPuts(() => status);
+
+    expect(await saveCompletion(entry('a'))).toBe('saved');
+    status = 'offline';
+    expect(await saveCompletion(entry('b'))).toBe('queued');
+    status = 422;
+    expect(await saveCompletion(entry('b'))).toBe('failed');
+  });
+
+  it('is sent when the browser is back online', async () => {
+    vi.stubGlobal(
+      'EventSource',
+      class {
+        close() {}
+      },
+    );
+    const { connect, queue } = await loadWithQueue('a');
+    let online = false;
+    const requests = stubPuts(() => (online ? 200 : 'offline'));
+    const disconnect = connect();
+    await vi.waitFor(() => expect(puts(requests)).toHaveLength(1));
+
+    online = true;
+    window.dispatchEvent(new Event('online'));
+
+    await vi.waitFor(() => expect(queue.entries).toEqual([]));
+    disconnect();
+  });
+
+  it('is cleared by logging out', async () => {
+    const { logOut, queue } = await loadWithQueue('a');
+    stubApi({ 'POST /api/logout': () => jsonResponse() });
+
+    await logOut();
+
+    expect(queue.entries).toEqual([]);
+    expect(localStorage.getItem('sysslor.queue')).toBeNull();
+  });
+});

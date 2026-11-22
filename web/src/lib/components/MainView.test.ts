@@ -1,7 +1,9 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { data } from '#lib/data.svelte.js';
+import { clearQueue, queue } from '#lib/queue.svelte.js';
 import { executors, jsonResponse, projectView } from '../../test/fixtures';
 import MainView from './MainView.svelte';
 
@@ -16,12 +18,17 @@ async function completeAs(user: ReturnType<typeof userEvent.setup>, task: string
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: person }));
 }
 
-/** Completions succeed unless `fail()` says otherwise; refetches return the fixtures. */
-function stubCompletions(fail: () => boolean = () => false) {
+/**
+ * Completions succeed unless `fail()` returns an error status, or `'offline'` to make the
+ * request reject. Refetches return the fixtures.
+ */
+function stubCompletions(fail: () => number | 'offline' | null = () => null) {
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith('/api/completions/')) {
       if (init?.method === 'DELETE') return jsonResponse();
-      if (fail()) return jsonResponse({ error: 'boom' }, 500);
+      const failure = fail();
+      if (failure === 'offline') throw new TypeError('Failed to fetch');
+      if (failure !== null) return jsonResponse({ error: 'boom' }, failure);
       return jsonResponse({ id: url.split('/').pop(), ...JSON.parse(init!.body as string) });
     }
     if (url === '/api/projects/1') return jsonResponse(projectView());
@@ -36,6 +43,7 @@ describe('MainView', () => {
   beforeEach(() => {
     data.groupFilter = null;
     data.actionError = null;
+    clearQueue();
   });
 
   it('asks to add people and disables completing without any', () => {
@@ -132,27 +140,67 @@ describe('MainView', () => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
-    it('retries a failed completion under the same id', async () => {
+    it('queues a completion without a connection and retries it under the same id', async () => {
       const user = userEvent.setup();
-      let failing = true;
-      const fetch = stubCompletions(() => failing);
+      let offline = true;
+      const fetch = stubCompletions(() => (offline ? 'offline' : null));
       render(MainView, { view: projectView(), executors });
       const puts = () => fetch.mock.calls.filter(([, init]) => init?.method === 'PUT').map(([url]) => url);
 
       await completeAs(user, 'Dishes', 'Anna');
-      expect(data.actionError).toBe('boom (500)');
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'Dishes done, will be saved when the connection is back',
+      );
+      expect(screen.getByText('Waiting to be saved')).toBeInTheDocument();
+      expect(screen.getByText(/Completed just now by Anna/)).toBeInTheDocument();
+      expect(data.actionError).toBeNull();
 
-      failing = false;
-      await completeAs(user, 'Dishes', 'Anna');
-      await screen.findByRole('status');
+      // Sending the next completion sends the queued one first.
+      offline = false;
+      await completeAs(user, 'Towels', 'Bo');
+      expect(await screen.findByRole('status')).toHaveTextContent('Towels done');
 
-      // The next completion of the same task is a new one.
-      await completeAs(user, 'Dishes', 'Anna');
-
-      const [first, retry, next] = puts();
+      const [first, retry, towels] = puts();
       expect(retry).toBe(first);
-      expect(next).not.toBe(first);
+      expect(towels).not.toBe(first);
+      expect(queue.entries).toEqual([]);
+    });
+
+    it('queues a completion while the server is down', async () => {
+      const user = userEvent.setup();
+      stubCompletions(() => 502);
+      render(MainView, { view: projectView(), executors });
+
+      await completeAs(user, 'Dishes', 'Anna');
+
+      expect(await screen.findByRole('status')).toHaveTextContent('will be saved');
+      expect(queue.entries).toHaveLength(1);
+    });
+
+    it('undoes a queued completion without contacting the server', async () => {
+      const user = userEvent.setup();
+      const fetch = stubCompletions(() => 'offline');
+      render(MainView, { view: projectView(), executors });
+
+      await completeAs(user, 'Dishes', 'Anna');
+      await user.click(within(await screen.findByRole('status')).getByRole('button', { name: 'Undo' }));
+
+      expect(queue.entries).toEqual([]);
+      expect(fetch.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+      expect(screen.queryByText('Waiting to be saved')).not.toBeInTheDocument();
+    });
+
+    it('shows why the server rejected a completion and drops it', async () => {
+      const user = userEvent.setup();
+      stubCompletions(() => 422);
+      render(MainView, { view: projectView(), executors });
+
+      await completeAs(user, 'Dishes', 'Anna');
+
+      expect(data.actionError).toBe('Could not save Dishes: boom (422)');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(queue.entries).toEqual([]);
     });
 
     it('hides the undo offer after 8 seconds', async () => {
@@ -162,7 +210,9 @@ describe('MainView', () => {
       render(MainView, { view: projectView(), executors });
 
       await completeAs(user, 'Dishes', 'Anna');
-      await vi.waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument());
+      // vi.waitFor doesn't give Svelte a chance to render under fake timers.
+      await tick();
+      expect(screen.getByRole('status')).toBeInTheDocument();
 
       await vi.advanceTimersByTimeAsync(7_900);
       expect(screen.getByRole('status')).toBeInTheDocument();

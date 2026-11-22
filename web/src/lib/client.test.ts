@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '../test/fixtures';
-import { ApiError, deleteCompletion, getProject, isUnauthorized, putCompletion, subscribe, uuidv7 } from './client';
+import { ApiError, WRITE_TIMEOUT_MS, deleteCompletion, getProject, isUnauthorized, putCompletion, subscribe, uuidv7 } from './client';
 
 describe('request', () => {
   it('sends JSON only when there is a body', async () => {
@@ -14,8 +14,14 @@ describe('request', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: '{"task_id":1,"executor_id":2,"completed_at":3}',
+      signal: expect.any(AbortSignal),
     });
-    expect(fetch).toHaveBeenNthCalledWith(2, '/api/projects/1', { method: 'GET', headers: {}, body: undefined });
+    expect(fetch).toHaveBeenNthCalledWith(2, '/api/projects/1', {
+      method: 'GET',
+      headers: {},
+      body: undefined,
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('returns undefined for 204', async () => {
@@ -39,6 +45,38 @@ describe('request', () => {
   it('reports an unreachable server without a status', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     await expect(getProject(1)).rejects.toMatchObject({ message: 'Could not reach the server.', status: null });
+  });
+
+  /** A fetch that only settles when aborted, like one to a host that doesn't answer. */
+  function stubHangingFetch() {
+    const fetch = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_, reject) =>
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))),
+        ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    return fetch;
+  }
+
+  it('gives up on a write without an answer, as if unreachable', async () => {
+    vi.useFakeTimers();
+    stubHangingFetch();
+
+    const result = putCompletion('x', { task_id: 1, executor_id: 2, completed_at: 3 }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS);
+
+    expect(await result).toMatchObject({ message: 'Could not reach the server.', status: null });
+  });
+
+  it('leaves the timeout of reads to the service worker', async () => {
+    vi.useFakeTimers();
+    const fetch = stubHangingFetch();
+
+    getProject(1).catch(() => {});
+    await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS * 2);
+
+    expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
   });
 });
 

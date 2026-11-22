@@ -81,7 +81,7 @@ async function page(request: Request): Promise<Response> {
   }
 }
 
-/** The last fetched list is shown offline. Writes still need a connection. */
+/** The last fetched list is shown offline. Completions are queued by the page (`queue.svelte.ts`). */
 async function apiData(request: Request): Promise<Response> {
   let response: Response;
   try {

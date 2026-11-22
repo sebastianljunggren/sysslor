@@ -30,16 +30,27 @@ export class ApiError extends Error {
 export const isUnauthorized = (error: unknown) =>
   error instanceof ApiError && error.status === 401;
 
+// When the hostname resolves but nothing answers (VPN down, weak signal), fetch would wait
+// for the OS connect timeout, often minutes, before a completion is queued instead.
+// Reads aren't cut off here: the service worker has its own timeout and then answers
+// from its cache.
+export const WRITE_TIMEOUT_MS = 5000;
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const controller = new AbortController();
+  const timer = method === 'GET' ? undefined : setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
       method,
       headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
     throw new ApiError(m.server_unreachable(), null);
+  } finally {
+    clearTimeout(timer);
   }
   if (!response.ok) {
     const error = await response

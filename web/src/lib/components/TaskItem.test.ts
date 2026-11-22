@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clock } from '#lib/clock.svelte.js';
+import { clearQueue, enqueue, queue, type QueuedCompletion } from '#lib/queue.svelte.js';
 import { executors, groups, jsonResponse, stubApi, task } from '../../test/fixtures';
 import TaskItem from './TaskItem.svelte';
 
@@ -22,6 +23,7 @@ describe('TaskItem', () => {
     // Only `Date`, so user-event's timers keep running.
     vi.useFakeTimers({ now, toFake: ['Date'] });
     clock.now = now.getTime();
+    clearQueue();
   });
 
   it('summarizes the task', () => {
@@ -115,5 +117,53 @@ describe('TaskItem', () => {
     await user.click(screen.getByRole('button', { name: 'Undo' }));
 
     expect(fetch).toHaveBeenCalledWith('/api/completions/c1', expect.objectContaining({ method: 'DELETE' }));
+  });
+
+  describe('with a completion waiting to be sent', () => {
+    const pending: QueuedCompletion = {
+      id: 'p1',
+      taskName: 'Dishes',
+      input: { task_id: 1, executor_id: 1, completed_at: now.getTime() - 60_000 },
+    };
+
+    it('shows it instead of the due date and last completion', () => {
+      const { container } = renderItem({ task: task(), pending });
+
+      expect(container.querySelector('article')).not.toHaveClass('overdue');
+      expect(container.querySelector('article')).toHaveClass('pending');
+      expect(screen.getByText('Waiting to be saved')).toBeInTheDocument();
+      expect(screen.queryByText('Never done')).not.toBeInTheDocument();
+      expect(screen.getByText('Completed 1 minute ago by Anna')).toBeInTheDocument();
+    });
+
+    it('backdates it in the queue while offline', async () => {
+      const user = userEvent.setup();
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+      enqueue(pending);
+      renderItem({ pending });
+
+      await user.click(screen.getByRole('button', { expanded: false }));
+      await fireEvent.input(screen.getByLabelText('Done at'), { target: { value: '2026-10-04T21:15' } });
+      await user.click(screen.getByRole('button', { name: 'Change time' }));
+
+      await vi.waitFor(() => expect(screen.queryByLabelText('Done at')).not.toBeInTheDocument());
+      expect(queue.entries).toEqual([
+        { ...pending, input: { ...pending.input, completed_at: new Date(2026, 9, 4, 21, 15).getTime() } },
+      ]);
+    });
+
+    it('undoes it without contacting the server', async () => {
+      const user = userEvent.setup();
+      const fetch = vi.fn();
+      vi.stubGlobal('fetch', fetch);
+      enqueue(pending);
+      renderItem({ pending });
+
+      await user.click(screen.getByRole('button', { expanded: false }));
+      await user.click(screen.getByRole('button', { name: 'Undo' }));
+
+      expect(queue.entries).toEqual([]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
   });
 });

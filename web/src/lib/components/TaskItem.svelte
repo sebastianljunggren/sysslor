@@ -2,9 +2,8 @@
   import type { Executor } from '#lib/api/Executor.js';
   import type { Group } from '#lib/api/Group.js';
   import type { TaskView } from '#lib/api/TaskView.js';
-  import { deleteCompletion, putCompletion } from '#lib/client.js';
   import { clock } from '#lib/clock.svelte.js';
-  import { mutate } from '#lib/data.svelte.js';
+  import { saveCompletion, undoCompletion } from '#lib/data.svelte.js';
   import {
     formatCadence,
     formatDue,
@@ -14,15 +13,19 @@
     localDateTime,
   } from '#lib/format.js';
   import { m } from '#lib/paraglide/messages.js';
+  import type { QueuedCompletion } from '#lib/queue.svelte.js';
 
   let {
     task,
+    pending,
     group,
     executors,
     canComplete,
     oncomplete,
   }: {
     task: TaskView;
+    /** A completion that hasn't reached the server yet. It is shown instead of the last one. */
+    pending?: QueuedCompletion;
     /** Shown as a tag; absent for ungrouped tasks or when filtering on one group. */
     group?: Group;
     executors: Executor[];
@@ -35,7 +38,10 @@
   let expanded = $state(false);
   let backdateTo = $state('');
 
-  const last = $derived(task.last_completion);
+  // Due date and order come from the server, so they only reflect a pending completion
+  // once it is sent. Until then, show it was done rather than a stale due date.
+  const last = $derived(pending ? { id: pending.id, ...pending.input } : task.last_completion);
+  const overdue = $derived(task.overdue && !pending);
   const lastBy = $derived(executors.find((e) => e.id === last?.executor_id)?.name ?? '?');
 
   async function run(action: () => Promise<unknown>) {
@@ -57,24 +63,26 @@
     if (!last || !backdateTo) return;
     const completedAt = new Date(backdateTo).getTime();
     // Replacing the completion under the same id is what moves it in time.
-    const saved = await mutate(() =>
-      putCompletion(last.id, {
+    const result = await saveCompletion({
+      id: last.id,
+      taskName: task.name,
+      input: {
         task_id: last.task_id,
         executor_id: last.executor_id,
         completed_at: Math.min(completedAt, Date.now()),
-      }),
-    );
-    if (saved) expanded = false;
+      },
+    });
+    if (result !== 'failed') expanded = false;
   }
 
   async function undo() {
     if (!last) return;
-    await mutate(() => deleteCompletion(last.id));
+    await undoCompletion(last.id);
     expanded = false;
   }
 </script>
 
-<article class:overdue={task.overdue}>
+<article class:overdue class:pending={pending !== undefined}>
   <div class="row">
     <button class="summary" aria-expanded={expanded} disabled={!last} onclick={toggle}>
       <span class="name">
@@ -91,7 +99,9 @@
         {/if}
       </span>
       <span class="meta">
-        {#if task.due}
+        {#if pending}
+          <span class="sync">{m.waiting_to_sync()}</span>
+        {:else if task.due}
           <time class="due" datetime={task.due} title={formatDueAbsolute(task.due)}
             >{formatDue(task.due, new Date(clock.now))}</time
           >
@@ -141,6 +151,11 @@
 
   article.overdue {
     border-left-color: var(--danger);
+  }
+
+  article.pending {
+    border-left-style: dashed;
+    border-left-color: var(--accent);
   }
 
   .row {
@@ -196,6 +211,10 @@
   .meta {
     color: var(--muted);
     font-size: 0.9rem;
+  }
+
+  .sync {
+    font-style: italic;
   }
 
   .overdue .due {

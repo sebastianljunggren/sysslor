@@ -3,9 +3,10 @@
   import type { Executor } from '#lib/api/Executor.js';
   import type { ProjectView } from '#lib/api/ProjectView.js';
   import type { TaskView } from '#lib/api/TaskView.js';
-  import { deleteCompletion, putCompletion, uuidv7 } from '#lib/client.js';
-  import { data, mutate, pickGroupFilter, type GroupFilter } from '#lib/data.svelte.js';
+  import { uuidv7 } from '#lib/client.js';
+  import { data, pickGroupFilter, saveCompletion, undoCompletion, type GroupFilter } from '#lib/data.svelte.js';
   import { m } from '#lib/paraglide/messages.js';
+  import { pendingFor } from '#lib/queue.svelte.js';
   import { pageHref } from '#lib/route.js';
   import CompleteDialog from './CompleteDialog.svelte';
   import TaskItem from './TaskItem.svelte';
@@ -34,27 +35,22 @@
   ]);
 
   let completing = $state<TaskView | null>(null);
-  let undo = $state<{ completionId: string; taskName: string } | null>(null);
+  let undo = $state<{ completionId: string; taskName: string; offline: boolean } | null>(null);
   let undoTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Ids of completions whose PUT failed, reused on the next tap so a request that
-  // reached the server despite the error isn't registered twice.
-  const pendingIds = new Map<number, string>();
-
   async function complete(task: TaskView, executorId: number, completedAt: number) {
-    const id = pendingIds.get(task.id) ?? uuidv7();
-    pendingIds.set(task.id, id);
-    const completion = await mutate(() =>
-      putCompletion(id, { task_id: task.id, executor_id: executorId, completed_at: completedAt }),
-    );
-    if (!completion) return;
-    pendingIds.delete(task.id);
-    showUndo(id, task.name);
+    const id = uuidv7();
+    const result = await saveCompletion({
+      id,
+      taskName: task.name,
+      input: { task_id: task.id, executor_id: executorId, completed_at: completedAt },
+    });
+    if (result !== 'failed') showUndo(id, task.name, result === 'queued');
   }
 
-  function showUndo(completionId: string, taskName: string) {
+  function showUndo(completionId: string, taskName: string, offline: boolean) {
     clearTimeout(undoTimer);
-    undo = { completionId, taskName };
+    undo = { completionId, taskName, offline };
     undoTimer = setTimeout(() => (undo = null), 8000);
   }
 
@@ -63,7 +59,7 @@
     const { completionId } = undo;
     clearTimeout(undoTimer);
     undo = null;
-    await mutate(() => deleteCompletion(completionId));
+    await undoCompletion(completionId);
   }
 
   $effect(() => () => clearTimeout(undoTimer));
@@ -94,6 +90,7 @@
       <li animate:flip={{ duration: 400 }}>
         <TaskItem
           {task}
+          pending={pendingFor(task.id)}
           group={filter === null && task.group_id !== null ? groupsById.get(task.group_id) : undefined}
           {executors}
           canComplete={executors.length > 0}
@@ -113,7 +110,7 @@
 
 {#if undo}
   <div class="toast" role="status">
-    <span>{m.task_done({ name: undo.taskName })}</span>
+    <span>{undo.offline ? m.saved_offline({ name: undo.taskName }) : m.task_done({ name: undo.taskName })}</span>
     <button class="link" onclick={undoLatest}>{m.undo()}</button>
   </div>
 {/if}

@@ -1,15 +1,19 @@
 import type { Executor } from './api/Executor';
 import type { ProjectView } from './api/ProjectView';
 import {
+  ApiError,
   DEFAULT_PROJECT,
+  deleteCompletion,
   getProject,
   isUnauthorized,
   listExecutors,
   login,
   logout,
+  putCompletion,
   subscribe,
 } from './client';
 import { m } from './paraglide/messages.js';
+import { clearQueue, dequeue, enqueue, isQueued, queue, type QueuedCompletion } from './queue.svelte';
 
 const GROUP_FILTER_KEY = 'sysslor.group';
 
@@ -60,16 +64,26 @@ export function refreshAll() {
   return Promise.all([refreshProject(), refreshExecutors()]);
 }
 
-/** Keeps `data` in sync with the server. Returns a function that disconnects. */
+/**
+ * Keeps `data` in sync with the server and sends queued completions whenever the
+ * connection may be back. Returns a function that disconnects.
+ */
 export function connect(): () => void {
   const disconnect = subscribe(
     (project) => {
       if (project === null) refreshAll();
       else if (project === DEFAULT_PROJECT) refreshProject();
     },
-    (connected) => (data.connected = connected),
+    (connected) => {
+      data.connected = connected;
+      if (connected) flushQueue();
+    },
   );
+  const onOnline = () => flushQueue();
+  window.addEventListener('online', onOnline);
+  flushQueue();
   return () => {
+    window.removeEventListener('online', onOnline);
     disconnect();
     // A stream closed by logging out isn't a lost connection. A stale `false` would show
     // the banner after the next login until the new stream opens.
@@ -95,6 +109,90 @@ export async function mutate<T>(write: () => Promise<T>): Promise<T | undefined>
   }
 }
 
+let flushing: Promise<Set<string>> | null = null;
+let flushAgain = false;
+let sending: string | null = null;
+
+/**
+ * Sends queued completions in order, until one can't be sent for now (offline, server
+ * down, logged out). Resolves with the ids that reached the server. Calls while sending
+ * share the run, and make it try once more at the end: the connection may have come back
+ * after the attempt that failed.
+ */
+export function flushQueue(): Promise<Set<string>> {
+  if (flushing) {
+    flushAgain = true;
+    return flushing;
+  }
+  flushing = (async () => {
+    const sent = new Set<string>();
+    try {
+      do {
+        flushAgain = false;
+        await sendQueued(sent);
+      } while (flushAgain && data.loggedIn);
+    } finally {
+      flushing = null;
+      queue.syncing = false;
+      if (sent.size > 0) refreshAll();
+    }
+    return sent;
+  })();
+  return flushing;
+}
+
+async function sendQueued(sent: Set<string>) {
+  for (let entry = queue.entries[0]; entry; entry = queue.entries[0]) {
+    queue.syncing = true;
+    sending = entry.id;
+    try {
+      await putCompletion(entry.id, entry.input);
+    } catch (error) {
+      if (!(error instanceof ApiError)) throw error;
+      // Unreachable, or e.g. a 502 during a deploy: try again later.
+      if (error.status === null || error.status >= 500) return;
+      if (error.status === 401) {
+        loggedOut();
+        return;
+      }
+      // E.g. the task was archived meanwhile. Retrying won't help.
+      dequeue(entry.id);
+      data.actionError = m.sync_failed({ name: entry.taskName, error: error.message });
+      continue;
+    } finally {
+      sending = null;
+    }
+    sent.add(entry.id);
+    // If it was backdated while being sent, the loop sends the new version next.
+    if (queue.entries[0] === entry) dequeue(entry.id);
+  }
+}
+
+/** What became of a saved completion. */
+export type SaveResult = 'saved' | 'queued' | 'failed';
+
+/**
+ * Creates or replaces a completion. Without a connection it is queued and sent later,
+ * so this only fails if the server rejects it (the error is then shown in the UI).
+ */
+export async function saveCompletion(entry: QueuedCompletion): Promise<SaveResult> {
+  enqueue(entry);
+  const sent = await flushQueue();
+  if (sent.has(entry.id) && !isQueued(entry.id)) {
+    data.actionError = null;
+    return 'saved';
+  }
+  return isQueued(entry.id) ? 'queued' : 'failed';
+}
+
+/** Undoes a completion, whether or not it has reached the server yet. */
+export async function undoCompletion(id: string) {
+  // Removing it from the queue mid-request wouldn't stop it from arriving.
+  if (sending === id) await flushing;
+  if (dequeue(id)) return;
+  await mutate(() => deleteCompletion(id));
+}
+
 /** Returns an error message to show, or `null` once logged in. */
 export async function logIn(password: string): Promise<string | null> {
   try {
@@ -115,6 +213,8 @@ export async function logOut() {
     data.actionError = message(error);
     return;
   }
+  // Like the cached data, they shouldn't outlive the session on a shared device.
+  clearQueue();
   loggedOut();
 }
 
