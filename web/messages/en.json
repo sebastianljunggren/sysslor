@@ -98,5 +98,23 @@
   "due_relative": "Due {when}",
   "was_due": "Was due {when}",
   "just_now": "just now",
-  "completed_by": "Completed {when} by {who}"
+  "completed_by": "Completed {when} by {who}",
+
+  "saved_offline": "{name} done, will be saved when the connection is back",
+  "waiting_to_sync": "Waiting to be saved",
+  "sync_failed": "Could not save {name}: {error}",
+  "pending_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "1 chore done offline, waiting to be saved.", "countPlural=*": "{count} chores done offline, waiting to be saved." }
+    }
+  ],
+  "pending_sync": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": { "countPlural=one": "1 completed chore will be saved when the connection is back.", "countPlural=*": "{count} completed chores will be saved when the connection is back." }
+    }
+  ]
 }

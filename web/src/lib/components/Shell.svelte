@@ -4,6 +4,7 @@
   import { connect, data, refreshAll } from '#lib/data.svelte.js';
   import { m } from '#lib/paraglide/messages.js';
   import { pageLabel, type Page } from '#lib/route.js';
+  import { queue } from '#lib/queue.svelte.js';
   import LoginView from './LoginView.svelte';
   import Nav from './Nav.svelte';
 
@@ -93,8 +94,11 @@
 
       {#if !data.connected || data.loadError}
         <p class="banner" role="status">
-          {data.loadError ?? m.no_connection()} {m.retrying()}
+          {data.loadError ?? m.no_connection()}
+          {queue.entries.length > 0 ? m.pending_sync({ count: queue.entries.length }) : m.retrying()}
         </p>
+      {:else if queue.entries.length > 0 && !queue.syncing}
+        <p class="banner" role="status">{m.pending_count({ count: queue.entries.length })}</p>
       {/if}
 
       {#if data.actionError}
