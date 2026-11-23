@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { executors, jsonResponse, projectView, stubApi } from '../../test/fixtures';
 import { data } from '#lib/data.svelte.js';
@@ -13,12 +13,15 @@ vi.mock('$app/navigation', () => ({
   afterNavigate: (callback: () => void) => (navigation.after = callback),
 }));
 
+let streamsOpened = 0;
+
 const children = createRawSnippet(() => ({ render: () => '<p>Page content</p>' }));
 
 describe('Shell', () => {
   beforeEach(() => {
     clearQueue();
     data.connected = true;
+    streamsOpened = 0;
     stubApi({
       'GET /api/projects/1': () => jsonResponse(projectView()),
       'GET /api/executors': () => jsonResponse(executors),
@@ -27,6 +30,9 @@ describe('Shell', () => {
     vi.stubGlobal(
       'EventSource',
       class {
+        constructor() {
+          streamsOpened++;
+        }
         close() {}
       },
     );
@@ -110,5 +116,22 @@ describe('Shell', () => {
       'No connection to the server. 1 completed chore will be saved when the connection is back.',
     );
     expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+
+  it('keeps the event stream open when completions are queued', async () => {
+    const fetch = stubApi({
+      'GET /api/projects/1': () => jsonResponse(projectView()),
+      'GET /api/executors': () => jsonResponse(executors),
+    });
+    render(Shell, { page: 'tasks', children });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
+    const requests = fetch.mock.calls.length;
+
+    enqueue({ id: 'a', taskName: 'Dishes', input: { task_id: 1, executor_id: 1, completed_at: 0 } });
+    await tick();
+
+    expect(await screen.findByText('1 chore done offline, waiting to be saved.')).toBeInTheDocument();
+    expect(streamsOpened).toBe(1);
+    expect(fetch.mock.calls.length).toBe(requests);
   });
 });
