@@ -109,38 +109,41 @@ export async function mutate<T>(write: () => Promise<T>): Promise<T | undefined>
   }
 }
 
-let flushing: Promise<Set<string>> | null = null;
+/** The ids a flush run sent, and the ones the server rejected and that were dropped. */
+export type FlushResult = { sent: Set<string>; rejected: Set<string> };
+
+let flushing: Promise<FlushResult> | null = null;
 let flushAgain = false;
 
 /**
  * Sends queued completions and undos in order, until one can't be sent for now (offline, server
- * down, logged out). Resolves with the ids that reached the server. Calls while sending
- * share the run, and make it try once more at the end: the connection may have come back
- * after the attempt that failed.
+ * down, logged out). Resolves with the ids that reached the server or were rejected. Calls
+ * while sending share the run, and make it try once more at the end: the connection may
+ * have come back after the attempt that failed.
  */
-export function flushQueue(): Promise<Set<string>> {
+export function flushQueue(): Promise<FlushResult> {
   if (flushing) {
     flushAgain = true;
     return flushing;
   }
   flushing = (async () => {
-    const sent = new Set<string>();
+    const result: FlushResult = { sent: new Set(), rejected: new Set() };
     try {
       do {
         flushAgain = false;
-        await sendQueued(sent);
+        await sendQueued(result);
       } while (flushAgain && data.loggedIn);
     } finally {
       flushing = null;
       queue.syncing = false;
-      if (sent.size > 0) refreshAll();
+      if (result.sent.size > 0) refreshAll();
     }
-    return sent;
+    return result;
   })();
   return flushing;
 }
 
-async function sendQueued(sent: Set<string>) {
+async function sendQueued({ sent, rejected }: FlushResult) {
   for (let entry = queue.entries[0]; entry; entry = queue.entries[0]) {
     queue.syncing = true;
     try {
@@ -158,6 +161,7 @@ async function sendQueued(sent: Set<string>) {
       // Undone meanwhile, e.g. on another device. That's what the user wanted anyway.
       if (error.status === 410) continue;
       // E.g. the task was archived meanwhile. Retrying won't help.
+      rejected.add(entry.id);
       data.actionError = isDelete(entry)
         ? m.undo_failed({ name: entry.taskName, error: error.message })
         : m.sync_failed({ name: entry.taskName, error: error.message });
@@ -178,9 +182,10 @@ export type SaveResult = 'saved' | 'queued' | 'failed';
  */
 export async function saveCompletion(entry: QueuedCompletion): Promise<SaveResult> {
   enqueue(entry);
-  const sent = await flushQueue();
+  const { sent, rejected } = await flushQueue();
   if (sent.has(entry.id) && !isQueued(entry.id)) {
-    data.actionError = null;
+    // Clearing it would hide that an earlier queued entry was dropped in this run.
+    if (rejected.size === 0) data.actionError = null;
     return 'saved';
   }
   return isQueued(entry.id) ? 'queued' : 'failed';
@@ -194,8 +199,8 @@ export async function undoCompletion(id: string, taskName: string) {
   // Always sent: a queued completion may still have reached the server, e.g. if its PUT
   // timed out after it arrived, or it backdates a completion the server already has.
   enqueue({ kind: 'delete', id, taskName });
-  const sent = await flushQueue();
-  if (sent.has(id) && !isQueued(id)) data.actionError = null;
+  const { sent, rejected } = await flushQueue();
+  if (sent.has(id) && !isQueued(id) && rejected.size === 0) data.actionError = null;
 }
 
 /** Returns an error message to show, or `null` once logged in. */

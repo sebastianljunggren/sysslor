@@ -233,7 +233,7 @@ describe('flushQueue', () => {
     const { flushQueue, queue } = await loadWithQueue('a', 'b');
     const requests = stubPuts();
 
-    expect(await flushQueue()).toEqual(new Set(['a', 'b']));
+    expect(await flushQueue()).toEqual({ sent: new Set(['a', 'b']), rejected: new Set() });
 
     expect(puts(requests)).toEqual(['PUT /api/completions/a', 'PUT /api/completions/b']);
     expect(queue.entries).toEqual([]);
@@ -345,7 +345,7 @@ describe('flushQueue', () => {
     const { data, flushQueue, queue } = await loadWithQueue('a', 'b');
     stubPuts((id) => (id === 'a' ? 410 : 200));
 
-    expect(await flushQueue()).toEqual(new Set(['b']));
+    expect(await flushQueue()).toEqual({ sent: new Set(['b']), rejected: new Set() });
 
     expect(data.actionError).toBeNull();
     expect(queue.entries).toEqual([]);
@@ -359,6 +359,24 @@ describe('flushQueue', () => {
 
     expect(data.actionError).toBe('Could not undo Task a: boom (422)');
     expect(queue.entries).toEqual([]);
+  });
+
+  it('keeps the error of a rejected entry when a later save succeeds', async () => {
+    const { data, saveCompletion } = await loadWithQueue('a');
+    stubPuts((id) => (id === 'a' ? 422 : 200));
+
+    expect(await saveCompletion(entry('b'))).toBe('saved');
+
+    expect(data.actionError).toBe('Could not save Task a: boom (422)');
+  });
+
+  it('keeps the error of a rejected entry when a later undo succeeds', async () => {
+    const { data, undoCompletion } = await loadWithQueue('a');
+    stubPuts((id) => (id === 'a' ? 422 : 200));
+
+    await undoCompletion('b', 'Task b');
+
+    expect(data.actionError).toBe('Could not save Task a: boom (422)');
   });
 
   it('tells whether a completion was saved, queued or rejected', async () => {
