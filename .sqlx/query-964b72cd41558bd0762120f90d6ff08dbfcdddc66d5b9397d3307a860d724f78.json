@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO deleted_completions (id, deleted_at) VALUES (?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "964b72cd41558bd0762120f90d6ff08dbfcdddc66d5b9397d3307a860d724f78"
+}

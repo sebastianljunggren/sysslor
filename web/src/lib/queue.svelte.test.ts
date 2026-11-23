@@ -30,6 +30,16 @@ describe('queue', () => {
     expect(queue.entries).toEqual([entry('a', 1, 500), entry('b')]);
   });
 
+  it('replaces a completion with its undo in place', async () => {
+    const { enqueue, pendingFor, queue } = await load();
+    enqueue(entry('a'));
+    enqueue(entry('b'));
+    enqueue({ kind: 'delete', id: 'a', taskName: 'Dishes' });
+
+    expect(queue.entries).toEqual([{ kind: 'delete', id: 'a', taskName: 'Dishes' }, entry('b')]);
+    expect(pendingFor(1)).toEqual(entry('b'));
+  });
+
   it('removes entries and says whether they were queued', async () => {
     const { enqueue, dequeue, isQueued } = await load();
     enqueue(entry('a'));

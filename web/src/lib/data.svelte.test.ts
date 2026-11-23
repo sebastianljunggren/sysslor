@@ -203,8 +203,11 @@ describe('flushQueue', () => {
     return { ...store, ...queue };
   }
 
-  /** PUTs answer with `status(id)`, `'offline'` rejects. Records the request order. */
-  function stubPuts(status: (id: string) => number | 'offline' = () => 200) {
+  /**
+   * Completion writes answer with `status(id, method)`, `'offline'` rejects. Records the
+   * request order.
+   */
+  function stubPuts(status: (id: string, method: string) => number | 'offline' = () => 200) {
     const requests: string[] = [];
     vi.stubGlobal(
       'fetch',
@@ -213,10 +216,10 @@ describe('flushQueue', () => {
         requests.push(`${method} ${url}`);
         if (url === '/api/projects/1') return jsonResponse(projectView());
         if (url === '/api/executors') return jsonResponse(executors);
-        if (method === 'DELETE') return jsonResponse();
         const id = url.split('/').pop()!;
-        const answer = status(id);
+        const answer = status(id, method);
         if (answer === 'offline') throw new TypeError('Failed to fetch');
+        if (method === 'DELETE' && answer === 200) return jsonResponse();
         return jsonResponse(answer === 200 ? { id, ...JSON.parse(init!.body as string) } : { error: 'boom' }, answer);
       }),
     );
@@ -224,6 +227,7 @@ describe('flushQueue', () => {
   }
 
   const puts = (requests: string[]) => requests.filter((r) => r.startsWith('PUT'));
+  const writes = (requests: string[]) => requests.filter((r) => !r.startsWith('GET'));
 
   it('sends entries in order, then refetches', async () => {
     const { flushQueue, queue } = await loadWithQueue('a', 'b');
@@ -300,13 +304,60 @@ describe('flushQueue', () => {
     const requests = stubPuts();
 
     const flushed = flushQueue();
-    const undone = undoCompletion('a');
+    const undone = undoCompletion('a', 'Task a');
     await Promise.all([flushed, undone]);
 
-    expect(requests.filter((r) => !r.startsWith('GET'))).toEqual([
-      'PUT /api/completions/a',
-      'DELETE /api/completions/a',
-    ]);
+    expect(writes(requests)).toEqual(['PUT /api/completions/a', 'DELETE /api/completions/a']);
+    expect(queue.entries).toEqual([]);
+  });
+
+  it('deletes an entry undone after its PUT timed out, as it may have arrived', async () => {
+    const { flushQueue, undoCompletion, queue } = await loadWithQueue('a');
+    let online = false;
+    const requests = stubPuts(() => (online ? 200 : 'offline'));
+    await flushQueue();
+
+    online = true;
+    await undoCompletion('a', 'Task a');
+
+    expect(writes(requests)).toEqual(['PUT /api/completions/a', 'DELETE /api/completions/a']);
+    expect(queue.entries).toEqual([]);
+  });
+
+  it('queues an undo without a connection and sends it when back', async () => {
+    const { data, flushQueue, undoCompletion, queue } = await loadWithQueue('a');
+    let online = false;
+    const requests = stubPuts(() => (online ? 200 : 'offline'));
+
+    // E.g. undoing a backdate of a completion the server already has.
+    await undoCompletion('a', 'Task a');
+    expect(queue.entries).toEqual([{ kind: 'delete', id: 'a', taskName: 'Task a' }]);
+    expect(data.actionError).toBeNull();
+
+    online = true;
+    await flushQueue();
+
+    expect(writes(requests)).toEqual(['DELETE /api/completions/a', 'DELETE /api/completions/a']);
+    expect(queue.entries).toEqual([]);
+  });
+
+  it('drops an entry that was undone elsewhere without an error', async () => {
+    const { data, flushQueue, queue } = await loadWithQueue('a', 'b');
+    stubPuts((id) => (id === 'a' ? 410 : 200));
+
+    expect(await flushQueue()).toEqual(new Set(['b']));
+
+    expect(data.actionError).toBeNull();
+    expect(queue.entries).toEqual([]);
+  });
+
+  it('shows why the server rejected an undo', async () => {
+    const { data, undoCompletion, queue } = await loadWithQueue();
+    stubPuts(() => 422);
+
+    await undoCompletion('a', 'Task a');
+
+    expect(data.actionError).toBe('Could not undo Task a: boom (422)');
     expect(queue.entries).toEqual([]);
   });
 

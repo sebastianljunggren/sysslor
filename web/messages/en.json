@@ -103,6 +103,7 @@
   "saved_offline": "{name} done, will be saved when the connection is back",
   "waiting_to_sync": "Waiting to be saved",
   "sync_failed": "Could not save {name}: {error}",
+  "undo_failed": "Could not undo {name}: {error}",
   "pending_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

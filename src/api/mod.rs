@@ -91,6 +91,8 @@ pub enum ApiError {
     NotFound(&'static str),
     /// The request conflicts with the current state, e.g. removing a non-empty group.
     Conflict(&'static str),
+    /// The resource was deleted for good and can't be recreated under the same id.
+    Gone(&'static str),
     Unauthorized(&'static str),
     TooManyRequests,
     /// The request is well-formed JSON but its values are not acceptable.
@@ -109,6 +111,7 @@ impl IntoResponse for ApiError {
         let (status, error) = match self {
             Self::NotFound(what) => (StatusCode::NOT_FOUND, what.to_owned()),
             Self::Conflict(why) => (StatusCode::CONFLICT, why.to_owned()),
+            Self::Gone(why) => (StatusCode::GONE, why.to_owned()),
             Self::Unauthorized(why) => (StatusCode::UNAUTHORIZED, why.to_owned()),
             Self::TooManyRequests => (
                 StatusCode::TOO_MANY_REQUESTS,

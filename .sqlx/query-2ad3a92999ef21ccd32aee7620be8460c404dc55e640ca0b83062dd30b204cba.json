@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS (SELECT 1 FROM deleted_completions WHERE id = ?) AS \"deleted!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "deleted!: bool",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2ad3a92999ef21ccd32aee7620be8460c404dc55e640ca0b83062dd30b204cba"
+}

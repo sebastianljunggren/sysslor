@@ -13,7 +13,7 @@ import {
   subscribe,
 } from './client';
 import { m } from './paraglide/messages.js';
-import { clearQueue, dequeue, enqueue, isQueued, queue, type QueuedCompletion } from './queue.svelte';
+import { clearQueue, dequeue, enqueue, isDelete, isQueued, queue, type QueuedCompletion } from './queue.svelte';
 
 const GROUP_FILTER_KEY = 'sysslor.group';
 
@@ -111,10 +111,9 @@ export async function mutate<T>(write: () => Promise<T>): Promise<T | undefined>
 
 let flushing: Promise<Set<string>> | null = null;
 let flushAgain = false;
-let sending: string | null = null;
 
 /**
- * Sends queued completions in order, until one can't be sent for now (offline, server
+ * Sends queued completions and undos in order, until one can't be sent for now (offline, server
  * down, logged out). Resolves with the ids that reached the server. Calls while sending
  * share the run, and make it try once more at the end: the connection may have come back
  * after the attempt that failed.
@@ -144,9 +143,9 @@ export function flushQueue(): Promise<Set<string>> {
 async function sendQueued(sent: Set<string>) {
   for (let entry = queue.entries[0]; entry; entry = queue.entries[0]) {
     queue.syncing = true;
-    sending = entry.id;
     try {
-      await putCompletion(entry.id, entry.input);
+      if (isDelete(entry)) await deleteCompletion(entry.id);
+      else await putCompletion(entry.id, entry.input);
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       // Unreachable, or e.g. a 502 during a deploy: try again later.
@@ -155,15 +154,17 @@ async function sendQueued(sent: Set<string>) {
         loggedOut();
         return;
       }
-      // E.g. the task was archived meanwhile. Retrying won't help.
       dequeue(entry.id);
-      data.actionError = m.sync_failed({ name: entry.taskName, error: error.message });
+      // Undone meanwhile, e.g. on another device. That's what the user wanted anyway.
+      if (error.status === 410) continue;
+      // E.g. the task was archived meanwhile. Retrying won't help.
+      data.actionError = isDelete(entry)
+        ? m.undo_failed({ name: entry.taskName, error: error.message })
+        : m.sync_failed({ name: entry.taskName, error: error.message });
       continue;
-    } finally {
-      sending = null;
     }
     sent.add(entry.id);
-    // If it was backdated while being sent, the loop sends the new version next.
+    // If it was backdated or undone while being sent, the loop sends the new version next.
     if (queue.entries[0] === entry) dequeue(entry.id);
   }
 }
@@ -185,12 +186,16 @@ export async function saveCompletion(entry: QueuedCompletion): Promise<SaveResul
   return isQueued(entry.id) ? 'queued' : 'failed';
 }
 
-/** Undoes a completion, whether or not it has reached the server yet. */
-export async function undoCompletion(id: string) {
-  // Removing it from the queue mid-request wouldn't stop it from arriving.
-  if (sending === id) await flushing;
-  if (dequeue(id)) return;
-  await mutate(() => deleteCompletion(id));
+/**
+ * Undoes a completion, whether or not it has reached the server yet. Like saving, it is
+ * queued without a connection and sent later.
+ */
+export async function undoCompletion(id: string, taskName: string) {
+  // Always sent: a queued completion may still have reached the server, e.g. if its PUT
+  // timed out after it arrived, or it backdates a completion the server already has.
+  enqueue({ kind: 'delete', id, taskName });
+  const sent = await flushQueue();
+  if (sent.has(id) && !isQueued(id)) data.actionError = null;
 }
 
 /** Returns an error message to show, or `null` once logged in. */

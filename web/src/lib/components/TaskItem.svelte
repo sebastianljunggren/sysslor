@@ -77,7 +77,7 @@
 
   async function undo() {
     if (!last) return;
-    await undoCompletion(last.id);
+    await undoCompletion(last.id, task.name);
     expanded = false;
   }
 </script>
