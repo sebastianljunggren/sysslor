@@ -32,13 +32,15 @@ export const isUnauthorized = (error: unknown) =>
 
 // When the hostname resolves but nothing answers (VPN down, weak signal), fetch would wait
 // for the OS connect timeout, often minutes, before a completion is queued instead.
-// Reads aren't cut off here: the service worker has its own timeout and then answers
-// from its cache.
+// Only idempotent writes are cut off: a slow server may still commit a timed-out
+// request, and retrying a POST would then create a duplicate. Reads aren't cut off
+// either: the service worker has its own timeout and then answers from its cache.
 export const WRITE_TIMEOUT_MS = 5000;
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const controller = new AbortController();
-  const timer = method === 'GET' ? undefined : setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS);
+  const idempotentWrite = method === 'PUT' || method === 'DELETE';
+  const timer = idempotentWrite ? setTimeout(() => controller.abort(), WRITE_TIMEOUT_MS) : undefined;
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
