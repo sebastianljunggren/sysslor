@@ -25,10 +25,10 @@ async function completeAs(user: ReturnType<typeof userEvent.setup>, task: string
 function stubCompletions(fail: () => number | 'offline' | null = () => null) {
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith('/api/completions/')) {
-      if (init?.method === 'DELETE') return jsonResponse();
       const failure = fail();
       if (failure === 'offline') throw new TypeError('Failed to fetch');
       if (failure !== null) return jsonResponse({ error: 'boom' }, failure);
+      if (init?.method === 'DELETE') return jsonResponse();
       return jsonResponse({ id: url.split('/').pop(), ...JSON.parse(init!.body as string) });
     }
     if (url === '/api/projects/1') return jsonResponse(projectView());
@@ -178,7 +178,7 @@ describe('MainView', () => {
       expect(queue.entries).toHaveLength(1);
     });
 
-    it('undoes a queued completion without contacting the server', async () => {
+    it('queues the undo of a queued completion, in case it reached the server', async () => {
       const user = userEvent.setup();
       const fetch = stubCompletions(() => 'offline');
       render(MainView, { view: projectView(), executors });
@@ -186,8 +186,9 @@ describe('MainView', () => {
       await completeAs(user, 'Dishes', 'Anna');
       await user.click(within(await screen.findByRole('status')).getByRole('button', { name: 'Undo' }));
 
-      expect(queue.entries).toEqual([]);
-      expect(fetch.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+      const id = fetch.mock.calls[0][0].replace('/api/completions/', '');
+      await vi.waitFor(() => expect(queue.entries).toEqual([{ kind: 'delete', id, taskName: 'Dishes' }]));
+      expect(fetch).toHaveBeenCalledWith(`/api/completions/${id}`, expect.objectContaining({ method: 'DELETE' }));
       expect(screen.queryByText('Waiting to be saved')).not.toBeInTheDocument();
     });
 

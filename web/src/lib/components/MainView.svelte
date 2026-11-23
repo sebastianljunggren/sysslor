@@ -56,10 +56,10 @@
 
   async function undoLatest() {
     if (!undo) return;
-    const { completionId } = undo;
+    const { completionId, taskName } = undo;
     clearTimeout(undoTimer);
     undo = null;
-    await undoCompletion(completionId);
+    await undoCompletion(completionId, taskName);
   }
 
   $effect(() => () => clearTimeout(undoTimer));

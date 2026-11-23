@@ -24,6 +24,8 @@ pub enum Upsert {
     Updated(ProjectId),
     /// The completion already exists with exactly these values.
     Unchanged,
+    /// The completion was deleted (undone) and must not come back.
+    Deleted,
     UnknownTask,
     UnknownExecutor,
 }
@@ -36,6 +38,16 @@ pub async fn upsert(pool: &SqlitePool, completion: &Completion) -> anyhow::Resul
     // IMMEDIATE takes the write lock up front, so the checks below cannot race with
     // another writer (a deferred transaction would fail to upgrade with SQLITE_BUSY).
     let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+
+    let deleted = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM deleted_completions WHERE id = ?) AS "deleted!: bool""#,
+        id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if deleted {
+        return Ok(Upsert::Deleted);
+    }
 
     let existing = sqlx::query!(
         "SELECT task_id, executor_id, completed_at FROM completions WHERE id = ?",
@@ -94,17 +106,33 @@ pub async fn upsert(pool: &SqlitePool, completion: &Completion) -> anyhow::Resul
 }
 
 /// Deleting a completion that does not exist is not an error, so undo is idempotent.
-/// Returns the project of the completed task, or `None` if nothing was deleted.
-pub async fn delete(pool: &SqlitePool, id: Uuid) -> anyhow::Result<Option<ProjectId>> {
+/// The id is remembered either way, so a PUT that arrives later (even before the completion
+/// was ever created) can't bring it back. Returns the project of the completed task, or
+/// `None` if nothing was deleted.
+pub async fn delete(
+    pool: &SqlitePool,
+    id: Uuid,
+    now: Timestamp,
+) -> anyhow::Result<Option<ProjectId>> {
     let id = id.to_string();
+    let deleted_at = to_millis(now);
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+    sqlx::query!(
+        "INSERT OR IGNORE INTO deleted_completions (id, deleted_at) VALUES (?, ?)",
+        id,
+        deleted_at
+    )
+    .execute(&mut *tx)
+    .await?;
     let project_id = sqlx::query_scalar!(
         r#"DELETE FROM completions WHERE id = ?
            RETURNING (SELECT project_id FROM tasks WHERE tasks.id = completions.task_id)
                AS "project_id!: ProjectId""#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(project_id)
 }
 

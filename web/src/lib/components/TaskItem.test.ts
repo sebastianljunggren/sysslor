@@ -152,18 +152,16 @@ describe('TaskItem', () => {
       ]);
     });
 
-    it('undoes it without contacting the server', async () => {
+    it('queues the undo while offline, in case it reached the server', async () => {
       const user = userEvent.setup();
-      const fetch = vi.fn();
-      vi.stubGlobal('fetch', fetch);
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
       enqueue(pending);
       renderItem({ pending });
 
       await user.click(screen.getByRole('button', { expanded: false }));
       await user.click(screen.getByRole('button', { name: 'Undo' }));
 
-      expect(queue.entries).toEqual([]);
-      expect(fetch).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(queue.entries).toEqual([{ kind: 'delete', id: 'p1', taskName: 'Dishes' }]));
     });
   });
 });

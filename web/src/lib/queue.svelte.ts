@@ -4,6 +4,7 @@ const QUEUE_KEY = 'sysslor.queue';
 
 /** A completion that hasn't reached the server yet. */
 export interface QueuedCompletion {
+  kind?: 'put';
   id: string;
   input: CompletionInput;
   /** For messages about it, also after the task is gone from the list. */
@@ -11,7 +12,22 @@ export interface QueuedCompletion {
 }
 
 /**
- * Completions waiting to be sent, oldest first. Kept in localStorage so they survive a
+ * An undo that hasn't reached the server yet. Queued even when the completion seems not
+ * to have been sent: a PUT that timed out may still have arrived.
+ */
+export interface QueuedDelete {
+  kind: 'delete';
+  id: string;
+  taskName: string;
+}
+
+/** Entries stored before deletes were queued have no `kind`; they are all puts. */
+export type QueuedWrite = QueuedCompletion | QueuedDelete;
+
+export const isDelete = (entry: QueuedWrite): entry is QueuedDelete => entry.kind === 'delete';
+
+/**
+ * Completions and undos waiting to be sent, oldest first. Kept in localStorage so they survive a
  * reload or a closed app. Sending is in `data.svelte.ts`.
  */
 export const queue = $state({
@@ -20,8 +36,11 @@ export const queue = $state({
   syncing: false,
 });
 
-/** Adds a completion, or replaces the queued one with the same id (e.g. to backdate it). */
-export function enqueue(entry: QueuedCompletion) {
+/**
+ * Adds a write, or replaces the queued one with the same id (e.g. to backdate or undo it).
+ * Only the latest write per id matters, so it keeps the old one's place.
+ */
+export function enqueue(entry: QueuedWrite) {
   const index = queue.entries.findIndex((e) => e.id === entry.id);
   if (index === -1) queue.entries.push(entry);
   else queue.entries[index] = entry;
@@ -44,7 +63,7 @@ export function isQueued(id: string): boolean {
 export function pendingFor(taskId: number): QueuedCompletion | undefined {
   let latest: QueuedCompletion | undefined;
   for (const entry of queue.entries) {
-    if (entry.input.task_id !== taskId) continue;
+    if (isDelete(entry) || entry.input.task_id !== taskId) continue;
     if (!latest || entry.input.completed_at >= latest.input.completed_at) latest = entry;
   }
   return latest;
@@ -64,7 +83,7 @@ function save() {
   }
 }
 
-function load(): QueuedCompletion[] {
+function load(): QueuedWrite[] {
   try {
     const stored = JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]');
     return Array.isArray(stored) ? stored : [];

@@ -47,6 +47,7 @@ pub async fn put(
         }
         // A retry: other clients already saw the original write.
         Upsert::Unchanged => StatusCode::OK,
+        Upsert::Deleted => return Err(ApiError::Gone("completion was undone")),
         Upsert::UnknownTask => {
             return Err(ApiError::Invalid(format!(
                 "task {} does not exist or is archived",
@@ -69,7 +70,7 @@ pub async fn delete(
     Path(id): Path<String>,
 ) -> ApiResult<StatusCode> {
     let id = parse_id(&id)?;
-    if let Some(project_id) = db::completions::delete(&state.pool, id).await? {
+    if let Some(project_id) = db::completions::delete(&state.pool, id, Timestamp::now()).await? {
         state.events.changed(Some(project_id));
     }
     Ok(StatusCode::NO_CONTENT)
@@ -205,5 +206,32 @@ mod tests {
         let view = default_project(&pool).await;
         assert_eq!(view.tasks[0].last_completion, None);
         assert!(view.tasks[0].overdue);
+    }
+
+    #[sqlx::test]
+    async fn put_after_delete_does_not_recreate(pool: SqlitePool) {
+        let (task, executor) = setup(&pool).await;
+        let at = now_ms();
+        complete(&pool, ID, task, executor, at).await;
+        request(&pool, "DELETE", &format!("/api/completions/{ID}"), None).await;
+
+        for completed_at in [at, days_ago(1)] {
+            let (status, _) = complete(&pool, ID, task, executor, completed_at).await;
+            assert_eq!(status, StatusCode::GONE);
+        }
+        let view = default_project(&pool).await;
+        assert_eq!(view.tasks[0].last_completion, None);
+    }
+
+    #[sqlx::test]
+    async fn delete_wins_over_a_put_that_arrives_later(pool: SqlitePool) {
+        let (task, executor) = setup(&pool).await;
+        let (status, _) = request(&pool, "DELETE", &format!("/api/completions/{ID}"), None).await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+
+        let (status, _) = complete(&pool, ID, task, executor, now_ms()).await;
+        assert_eq!(status, StatusCode::GONE);
+        let view = default_project(&pool).await;
+        assert_eq!(view.tasks[0].last_completion, None);
     }
 }

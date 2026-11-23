@@ -113,6 +113,7 @@
   "saved_offline": "{name} klar, sparas när anslutningen är tillbaka",
   "waiting_to_sync": "Väntar på att sparas",
   "sync_failed": "Kunde inte spara {name}: {error}",
+  "undo_failed": "Kunde inte ångra {name}: {error}",
   "pending_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
