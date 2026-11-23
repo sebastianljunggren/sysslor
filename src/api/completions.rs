@@ -1,7 +1,7 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use jiff::Timestamp;
+use jiff::{SignedDuration, Timestamp};
 use uuid::{Uuid, Version};
 
 use super::types::{Completion, CompletionInput};
@@ -9,9 +9,13 @@ use super::{ApiError, ApiResult, AppState};
 use crate::db;
 use crate::db::completions::Upsert;
 
+/// Device clocks drift, and a completion from a phone that runs a bit ahead must not be
+/// lost. Much further ahead, it would hide every later completion of the task.
+const MAX_CLOCK_SKEW: SignedDuration = SignedDuration::from_mins(5);
+
 /// Creates or replaces a completion. The client picks the id, so retrying a request
 /// (e.g. after a dropped connection) never registers the task twice. Replacing is how
-/// a completion is backdated.
+/// a completion is backdated. Times later than the server's clock are rejected.
 pub async fn put(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -29,6 +33,12 @@ pub async fn put(
             input.completed_at
         ))
     })?;
+    if completed_at > state.clock.now() + MAX_CLOCK_SKEW {
+        return Err(ApiError::Invalid(format!(
+            "completed_at {} is in the future",
+            input.completed_at
+        )));
+    }
     let completion = db::completions::Completion {
         id,
         task_id: input.task_id,
@@ -170,6 +180,25 @@ mod tests {
         assert!(body.contains("executor 99"));
         let (status, _) = complete(&pool, ID, task, executor, i64::MAX).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[sqlx::test]
+    async fn future_completions_are_rejected(pool: SqlitePool) {
+        let (task, executor) = setup(&pool).await;
+        let tomorrow = now_ms() + 24 * 60 * 60 * 1000;
+        let (status, body) = complete(&pool, ID, task, executor, tomorrow).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(body.contains("in the future"), "{body}");
+
+        let view = default_project(&pool).await;
+        assert_eq!(view.tasks[0].last_completion, None);
+    }
+
+    #[sqlx::test]
+    async fn small_clock_skew_is_accepted(pool: SqlitePool) {
+        let (task, executor) = setup(&pool).await;
+        let (status, _) = complete(&pool, ID, task, executor, now_ms() + 60_000).await;
+        assert_eq!(status, StatusCode::CREATED);
     }
 
     #[sqlx::test]
