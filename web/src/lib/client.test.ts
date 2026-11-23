@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '../test/fixtures';
-import { ApiError, WRITE_TIMEOUT_MS, deleteCompletion, getProject, isUnauthorized, putCompletion, subscribe, uuidv7 } from './client';
+import { ApiError, WRITE_TIMEOUT_MS, createTask, deleteCompletion, getProject, isUnauthorized, putCompletion, subscribe, uuidv7 } from './client';
 
 describe('request', () => {
   it('sends JSON only when there is a body', async () => {
@@ -74,6 +74,16 @@ describe('request', () => {
     const fetch = stubHangingFetch();
 
     getProject(1).catch(() => {});
+    await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS * 2);
+
+    expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
+  });
+
+  it('does not give up on a POST, which would create a duplicate if retried', async () => {
+    vi.useFakeTimers();
+    const fetch = stubHangingFetch();
+
+    createTask(1, { name: 'x', cadence: { amount: 1, unit: 'days' }, priority: 2, group_id: null }).catch(() => {});
     await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS * 2);
 
     expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(false);
