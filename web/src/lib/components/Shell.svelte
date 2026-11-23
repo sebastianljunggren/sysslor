@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import { connect, data, refreshAll } from '#lib/data.svelte.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -43,9 +43,13 @@
 
   $effect(() => {
     if (!data.loggedIn) return;
-    // The event stream also triggers a fetch once connected, but don't wait for it.
-    refreshAll();
-    return connect();
+    // Only logging in or out should reconnect. Connecting reads the queue to flush it,
+    // which would otherwise make every enqueue reopen the stream and refetch.
+    return untrack(() => {
+      // The event stream also triggers a fetch once connected, but don't wait for it.
+      refreshAll();
+      return connect();
+    });
   });
 </script>
 
