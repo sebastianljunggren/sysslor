@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/sebastianljunggren/sysslor/compare/v1.1.1...v1.2.0) (2026-11-23)
+
+
+### Features
+
+* sync completions made offline when connectivity is back ([#139](https://github.com/sebastianljunggren/sysslor/issues/139)) ([fe61837](https://github.com/sebastianljunggren/sysslor/commit/fe6183757c45c656c9e2684845feef76ae813152))
+
+
+### Bug Fixes
+
+* keep the error for a rejected completion when a later write succeeds ([#148](https://github.com/sebastianljunggren/sysslor/issues/148)) ([40b8f16](https://github.com/sebastianljunggren/sysslor/commit/40b8f16fb1b2ece8a4434a1582611c4e1d5fe886))
+* keep the event stream open when the offline queue changes ([#146](https://github.com/sebastianljunggren/sysslor/issues/146)) ([79f9c31](https://github.com/sebastianljunggren/sysslor/commit/79f9c31838d98ec58cc57c2326759dfa7e6febec))
+* only time out idempotent writes ([#147](https://github.com/sebastianljunggren/sysslor/issues/147)) ([1e6e28c](https://github.com/sebastianljunggren/sysslor/commit/1e6e28cf7647f99dd5be5e80553d96d5b2dd3d67))
+* reject completions dated in the future ([#145](https://github.com/sebastianljunggren/sysslor/issues/145)) ([782e0a1](https://github.com/sebastianljunggren/sysslor/commit/782e0a1c6f1f09f49ce2fcf7d44180c9f881cfde))
+* send undo to the server even if the completion is still queued ([#144](https://github.com/sebastianljunggren/sysslor/issues/144)) ([2fe3564](https://github.com/sebastianljunggren/sysslor/commit/2fe3564ff589ebeea1476e530c1f4cfb6e9d358a))
+
 ## [1.1.1](https://github.com/sebastianljunggren/sysslor/compare/v1.1.0...v1.1.1) (2026-11-14)
 
 
